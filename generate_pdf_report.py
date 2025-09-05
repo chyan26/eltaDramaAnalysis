@@ -46,7 +46,7 @@ def collect_analysis_results():
             'total_records': len(df),
             'date_range': f"{df['Date'].min().strftime('%Y-%m-%d')} 至 {df['Date'].max().strftime('%Y-%m-%d')}",
             'total_series': df['Cleaned_Series_Name'].nunique(),
-            'analysis_date': datetime.now().strftime('%Y年%m月%d日')
+            'analysis_date': datetime.now().strftime('%Y-%m-%d')
         }
     }
     

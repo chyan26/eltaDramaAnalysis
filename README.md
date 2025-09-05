@@ -16,6 +16,7 @@ This project successfully integrates ELTA's program schedule with viewership rat
 - **Age Demographics**: Advanced audience age group analysis
 - **PDF Reports**: Automated LaTeX-based professional reports
 - **AI Presentation**: AI-powered presentation slides for industry insights
+- **🆕 Automated Pipeline System**: Web-based dashboard with real-time monitoring
 
 ## Installation / 安裝
 
@@ -65,6 +66,18 @@ python generate_pdf_report.py
 # Generate AI presentation slides
 xelatex ai_python_presentation.tex
 # Output: ai_python_presentation.pdf
+```
+
+### Option 4: Automated Pipeline System / 自動化管道系統
+```bash
+# 1. 安裝依賴
+pip install -r requirements.txt
+
+# 2. 啟動自動化系統
+python automated_pipeline.py
+
+# 3. 開啟瀏覽器
+# 前往 http://localhost:5000
 ```
 
 ## 完成的主要工作
@@ -128,6 +141,15 @@ xelatex ai_python_presentation.tex
   - 產業趨勢分析
   - 產生 `ai_python_presentation.pdf`
 
+### 8. 🆕 自動化管道系統
+- **檔案**: `automated_pipeline.py`
+- **功能**:
+  - Web 儀表板介面
+  - 檔案上傳自動觸發分析
+  - 即時狀態監控和日誌
+  - 結果檔案管理和下載
+  - 排程自動執行功能
+
 ## 關鍵發現
 
 ### 主要劇集表現
@@ -179,6 +201,12 @@ xelatex ai_python_presentation.tex
 - High-resolution chart output / 高解析度圖表輸出
 - Chinese label support / 中文標籤支援
 
+### 🆕 Automation Features / 自動化功能
+- Web-based dashboard interface / Web 儀表板介面
+- Real-time analysis monitoring / 即時分析監控
+- Automated file processing / 自動檔案處理
+- Scheduled execution / 排程執行
+
 ## Dependencies / 依賴套件
 
 ### Core Dependencies / 核心依賴
@@ -187,6 +215,11 @@ xelatex ai_python_presentation.tex
 - seaborn >= 0.11.0
 - numpy >= 1.20.0
 - openpyxl >= 3.0.0
+
+### 🆕 Automation System / 自動化系統
+- watchdog >= 2.1.9
+- flask >= 2.3.0
+- schedule >= 1.2.0
 
 ### Advanced Features / 進階功能
 - LaTeX distribution (for PDF report generation)
@@ -251,3 +284,4 @@ For questions about this project, please open an issue on GitHub.
 - Charts output in high-resolution PNG format / 圖表輸出為高解析度PNG格式
 - PDF reports require LaTeX installation / PDF報告需要安裝LaTeX
 - Age analysis requires ACNelson data files / 年齡分析需要ACNelson資料檔案
+- 🆕 Web dashboard available at http://localhost:5000 after running automated_pipeline.py / 執行 automated_pipeline.py 後可在 http://localhost:5000 使用 Web 儀表板
