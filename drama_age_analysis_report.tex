@@ -1,26 +1,56 @@
 
-\documentclass[12pt,a4paper]{article}
+\documentclass[11pt,a4paper]{article}
 \usepackage[UTF8]{ctex}
 \usepackage{geometry}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{longtable}
+\usepackage{ltxtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{adjustbox}
+\usepackage{rotating}
+\usepackage{pdflscape}
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{fancyhdr}
 \usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{siunitx}
 
-% 頁面設定
-\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+% 頁面設定 - 減少邊距以容納更多內容
+\geometry{left=1.8cm,right=1.8cm,top=2cm,bottom=2cm}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{愛爾達綜合台劇集年齡分層收視分析報告}
-\fancyhead[R]{\thepage}
+\fancyhead[L]{\small 愛爾達綜合台劇集年齡分層收視分析報告}
+\fancyhead[R]{\small \thepage}
+
+% 表格字體設定
+\newcommand{\tablesize}{\small}  % Changed from footnotesize to small for better readability
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+% 改善表格可讀性
+\renewcommand{\arraystretch}{1.3}  % Increased from 1.2 to 1.3 for better row spacing
+\setlength{\tabcolsep}{4pt}  % Increased from 3pt to 4pt for better column spacing
+
+% 改善中文字體顯示
+\setCJKmainfont{PingFang SC}[AutoFakeBold=true,AutoFakeSlant=true]
+\setCJKsansfont{SimHei}[AutoFakeBold=true]
+\setCJKmonofont{SimKai}
+
+% 數字格式設定
+\sisetup{
+  group-separator = {,},
+  group-minimum-digits = 4,
+  round-mode = places,
+  round-precision = 4
+}
 
 % 標題設定
 \title{\textbf{\Large 愛爾達綜合台劇集年齡分層收視分析報告}}
 \author{資料分析團隊}
-\date{2025年09月05日}
+\date{2025年09月06日}
 
 \begin{document}
 
@@ -57,7 +87,7 @@
 總收視紀錄數 & 8,981 筆 \\
 分析時間範圍 & 2024-01-01 至 2024-12-31 \\
 涵蓋劇集數量 & 143 部 \\
-分析生成日期 & 2025年09月05日 \\
+分析生成日期 & 2025年09月06日 \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -111,31 +141,35 @@
 那年花開月正圓 & 217 & 銀髮族 & 0.0923 \\
 琅琊榜 & 211 & 銀髮族 & 0.1416 \\
 神鵰俠侶 & 176 & 銀髮族 & 0.1002 \\
-月升滄海 & 170 & 銀髮族 & 0.1515 \\
 醫師好辣 & 170 & 銀髮族 & 0.1053 \\
-長相思 第一季 & 160 & 銀髮族 & 0.1649 \\
+月升滄海 & 170 & 銀髮族 & 0.1515 \\
+樂遊原 & 160 & 銀髮族 & 0.1467 \\
 
 \end{longtable}
 
 \section{時段收視分析}
 
-不同時段的年齡層收視率分布：
+不同時段的年齡層與性別收視率分布：
 
 \begin{table}[H]
+\fontsize{5}{6}\selectfont
 \centering
-\caption{各時段收視率分析}
-\begin{tabular}{lrrrrrrr}
+\caption{各時段收視率分析 - 完整年齡與性別分布}
+\setlength{\tabcolsep}{1pt}
+\begin{adjustbox}{width=\textwidth,center}
+\begin{tabular}{@{}l*{17}{c}@{}}
 \toprule
-時段 & 總體 & 核心觀眾 & 年輕族群 & 青壯年 & 中年 & 熟齡 & 銀髮族 \\
+\textbf{時段} & \textbf{總體} & \textbf{核心} & \textbf{年輕} & \textbf{年輕M} & \textbf{年輕F} & \textbf{青壯} & \textbf{青壯M} & \textbf{青壯F} & \textbf{中年} & \textbf{中年M} & \textbf{中年F} & \textbf{熟齡} & \textbf{熟齡M} & \textbf{熟齡F} & \textbf{銀髮} & \textbf{銀髮M} & \textbf{銀髮F} \\
 \midrule
-凌晨時段 & 0.0137 & 0.0105 & 0.0096 & 0.0150 & 0.0095 & 0.0136 & 0.0149 \\
-早晨時段 & 0.0525 & 0.0397 & 0.0308 & 0.0441 & 0.0475 & 0.0540 & 0.0737 \\
-午間時段 & 0.1156 & 0.1036 & 0.0908 & 0.1180 & 0.1057 & 0.1154 & 0.1482 \\
-黃金時段 & 0.1609 & 0.1503 & 0.1495 & 0.1677 & 0.1372 & 0.1807 & 0.1923 \\
-深夜時段 & 0.0449 & 0.0439 & 0.0409 & 0.0596 & 0.0337 & 0.0520 & 0.0536 \\
+凌晨時段 & 0.0137 & 0.0105 & 0.0096 & 0.0100 & 0.0088 & 0.0150 & 0.0166 & 0.0134 & 0.0095 & 0.0091 & 0.0094 & 0.0136 & 0.0112 & 0.0152 & 0.0149 & 0.0119 & 0.0169 \\
+早晨時段 & 0.0525 & 0.0397 & 0.0308 & 0.0301 & 0.0314 & 0.0441 & 0.0414 & 0.0473 & 0.0475 & 0.0434 & 0.0515 & 0.0540 & 0.0491 & 0.0581 & 0.0737 & 0.0547 & 0.0912 \\
+午間時段 & 0.1156 & 0.1036 & 0.0908 & 0.0858 & 0.0967 & 0.1180 & 0.1096 & 0.1270 & 0.1057 & 0.1075 & 0.1038 & 0.1154 & 0.1010 & 0.1278 & 0.1482 & 0.1205 & 0.1740 \\
+黃金時段 & 0.1609 & 0.1503 & 0.1495 & 0.1396 & 0.1612 & 0.1677 & 0.1725 & 0.1629 & 0.1372 & 0.1314 & 0.1428 & 0.1807 & 0.1511 & 0.2066 & 0.1923 & 0.1557 & 0.2267 \\
+深夜時段 & 0.0449 & 0.0439 & 0.0409 & 0.0405 & 0.0413 & 0.0596 & 0.0621 & 0.0570 & 0.0337 & 0.0301 & 0.0367 & 0.0520 & 0.0410 & 0.0615 & 0.0536 & 0.0439 & 0.0629 \\
 
 \bottomrule
 \end{tabular}
+\end{adjustbox}
 \end{table}
 
 \section{性別收視差異分析}
@@ -181,9 +215,11 @@
 \begin{table}[H]
 \centering
 \caption{各月份年齡層收視率}
-\begin{tabular}{lrrrrrrr}
+\tiny
+\begin{adjustbox}{width=\textwidth,center}
+\begin{tabular}{lC{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}}
 \toprule
-月份 & 總體 & 核心觀眾 & 年輕族群 & 青壯年 & 中年 & 熟齡 & 銀髮族 \\
+\textbf{月份} & \textbf{總體} & \textbf{核心觀眾} & \textbf{年輕族群} & \textbf{青壯年} & \textbf{中年} & \textbf{熟齡} & \textbf{銀髮族} \\
 \midrule
 1月 & 0.0826 & 0.0734 & 0.0708 & 0.0848 & 0.0676 & 0.0887 & 0.1067 \\
 2月 & 0.0859 & 0.0757 & 0.0701 & 0.0870 & 0.0732 & 0.0928 & 0.1088 \\
@@ -200,6 +236,7 @@
 
 \bottomrule
 \end{tabular}
+\end{adjustbox}
 \end{table}
 
 \subsection{各年齡層最佳/最差收視月份}
@@ -241,6 +278,13 @@
     \item 主要劇集性別偏好
     \item 整體年齡分布占比
 \end{enumerate}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{gender_age_analysis_landscape.png}
+\caption{不同時段性別年齡分布橫向圖表}
+\label{fig:gender_landscape}
+\end{figure}
 
 \section{策略建議}
 
