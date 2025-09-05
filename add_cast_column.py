@@ -40,7 +40,11 @@ def get_cast_for_program(program_name, manual_cast):
     if infobox:
         for tr in infobox.find_all("tr"):
             if tr.th and any(key in tr.th.text for key in ["主演", "演員", "配音", "主持人", "主要演員"]):
-                cast = tr.td.text.strip().replace('\n', '、').replace(' ', '')
+                td = tr.find('td')
+                if td:
+                    cast = td.text.strip().replace('\n', '、').replace(' ', '')
+                else:
+                    cast = ""
                 manual_cast[program_name] = cast
                 return cast
     manual_cast[program_name] = "N/A"
