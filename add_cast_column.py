@@ -56,36 +56,22 @@ def main():
     }
 
     df = pd.read_csv(src_file)
-    # 若已存在結果檔，則讀取已查詢進度
-    if os.path.exists(out_file):
-        df_out = pd.read_csv(out_file)
-        if 'Cast' in df_out.columns:
-            df['Cast'] = df_out['Cast']
-        else:
-            df['Cast'] = ""
-    else:
-        df['Cast'] = ""
+    # 取得所有唯一劇集名稱
+    unique_series = df['Cleaned_Series_Name'].dropna().unique()
+    print(f"共 {len(unique_series)} 種劇集，開始爬取卡司...")
 
-    print("開始爬取卡司資料...")
-    start_idx = 0
-    if df['Cast'].notna().sum() > 0:
-        # 找到第一個未查詢的位置
-        start_idx = df[df['Cast'].isna() | (df['Cast'] == "")].index[0]
+    # 先建立劇集名稱到卡司的 dict
+    cast_dict = {}
+    for series_name in tqdm(unique_series, desc="劇集卡司查詢"):
+        cast = get_cast_for_program(series_name, manual_cast)
+        cast_dict[series_name] = cast
+        tqdm.write(f"{series_name}: {cast}")
+        time.sleep(1)
 
-    for i in tqdm(range(start_idx, len(df)), desc="查詢卡司"):
-        series_name = df.loc[i, 'Cleaned_Series_Name']
-        if pd.isna(df.loc[i, 'Cast']) or df.loc[i, 'Cast'] == "":
-            cast = get_cast_for_program(series_name, manual_cast)
-            df.loc[i, 'Cast'] = cast
-            tqdm.write(f"Series: {series_name}, Cast: {cast}")
-            time.sleep(1)
-        # 每180筆儲存一次
-        if (i + 1) % 180 == 0:
-            df.to_csv(out_file, index=False)
-            tqdm.write(f"已儲存至 {out_file}，進度：{i+1}/{len(df)}")
-    # 最後一次儲存
+    # 將卡司合併回原始資料
+    df['Cast'] = df['Cleaned_Series_Name'].map(cast_dict)
     df.to_csv(out_file, index=False)
-    print("全部完成，已新增 Cast 欄位並儲存新檔案。")
+    print(f"全部完成，已新增 Cast 欄位並儲存新檔案：{out_file}")
 
 if __name__ == "__main__":
     main()
