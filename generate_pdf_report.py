@@ -22,6 +22,10 @@ import subprocess
 from datetime import datetime
 import sys
 
+# Add MacTeX to PATH for LaTeX compilation
+if '/Library/TeX/texbin' not in os.environ.get('PATH', ''):
+    os.environ['PATH'] = '/Library/TeX/texbin:' + os.environ.get('PATH', '')
+
 # 導入我們的分析模組
 sys.path.append('.')
 from drama_age_analysis import (
@@ -31,7 +35,8 @@ from drama_age_analysis import (
     analyze_gender_differences,
     analyze_monthly_age_trends,
     setup_font,
-    AGE_GROUPS
+    AGE_GROUPS,
+    GENDER_GROUPS,
 )
 
 def collect_analysis_results():
@@ -104,6 +109,11 @@ def collect_analysis_results():
         for group_name, columns in AGE_GROUPS.items():
             if columns[0] in slot_data.columns:
                 slot_ratings[group_name] = slot_data[columns[0]].mean()
+        
+        # 加入性別層的統計
+        for gender_group_name, col_name in GENDER_GROUPS.items():
+            if col_name in slot_data.columns:
+                slot_ratings[gender_group_name] = slot_data[col_name].mean()
         
         time_analysis[slot_name] = {
             'count': len(slot_data),
@@ -187,23 +197,53 @@ def generate_latex_report(results):
     print("📝 生成LaTeX報告...")
     
     latex_content = r"""
-\documentclass[12pt,a4paper]{article}
+\documentclass[11pt,a4paper]{article}
 \usepackage[UTF8]{ctex}
 \usepackage{geometry}
 \usepackage{graphicx}
 \usepackage{booktabs}
 \usepackage{longtable}
+\usepackage{ltxtable}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{adjustbox}
+\usepackage{rotating}
+\usepackage{pdflscape}
 \usepackage{float}
 \usepackage{xcolor}
 \usepackage{fancyhdr}
 \usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{siunitx}
 
-% 頁面設定
-\geometry{left=2.5cm,right=2.5cm,top=2.5cm,bottom=2.5cm}
+% 頁面設定 - 減少邊距以容納更多內容
+\geometry{left=1.8cm,right=1.8cm,top=2cm,bottom=2cm}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{愛爾達綜合台劇集年齡分層收視分析報告}
-\fancyhead[R]{\thepage}
+\fancyhead[L]{\small 愛爾達綜合台劇集年齡分層收視分析報告}
+\fancyhead[R]{\small \thepage}
+
+% 表格字體設定
+\newcommand{\tablesize}{\small}  % Changed from footnotesize to small for better readability
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\arraybackslash}p{#1}}
+
+% 改善表格可讀性
+\renewcommand{\arraystretch}{1.3}  % Increased from 1.2 to 1.3 for better row spacing
+\setlength{\tabcolsep}{4pt}  % Increased from 3pt to 4pt for better column spacing
+
+% 改善中文字體顯示
+\setCJKmainfont{PingFang SC}[AutoFakeBold=true,AutoFakeSlant=true]
+\setCJKsansfont{SimHei}[AutoFakeBold=true]
+\setCJKmonofont{SimKai}
+
+% 數字格式設定
+\sisetup{
+  group-separator = {,},
+  group-minimum-digits = 4,
+  round-mode = places,
+  round-precision = 4
+}
 
 % 標題設定
 \title{\textbf{\Large 愛爾達綜合台劇集年齡分層收視分析報告}}
@@ -302,21 +342,26 @@ def generate_latex_report(results):
 
 \section{時段收視分析}
 
-不同時段的年齡層收視率分布：
+不同時段的年齡層與性別收視率分布：
 
 \begin{table}[H]
+\fontsize{5}{6}\selectfont
 \centering
-\caption{各時段收視率分析}
-\begin{tabular}{lrrrrrrr}
+\caption{各時段收視率分析 - 完整年齡與性別分布}
+\setlength{\tabcolsep}{1pt}
+\begin{adjustbox}{width=\textwidth,center}
+\begin{tabular}{@{}l*{17}{c}@{}}
 \toprule
-時段 & 總體 & 核心觀眾 & 年輕族群 & 青壯年 & 中年 & 熟齡 & 銀髮族 \\
+\textbf{時段} & \textbf{總體} & \textbf{核心} & \textbf{年輕} & \textbf{年輕M} & \textbf{年輕F} & \textbf{青壯} & \textbf{青壯M} & \textbf{青壯F} & \textbf{中年} & \textbf{中年M} & \textbf{中年F} & \textbf{熟齡} & \textbf{熟齡M} & \textbf{熟齡F} & \textbf{銀髮} & \textbf{銀髮M} & \textbf{銀髮F} \\
 \midrule
 """
 
-    # 加入時段分析表格
+    # 加入時段分析表格 - 合併所有組別，按照正確順序
     for time_slot, data in results['time_analysis'].items():
         latex_content += f"{time_slot}"
-        for group in ['總體', '核心觀眾', '年輕族群', '青壯年', '中年', '熟齡', '銀髮族']:
+        # Combined all groups in the correct order: 年輕M & 年輕F after 年輕, etc.
+        for group in ['總體', '核心觀眾', '年輕族群', '年輕男性', '年輕女性', '青壯年', '青壯年男性', '青壯年女性', 
+                      '中年', '中年男性', '中年女性', '熟齡', '熟齡男性', '熟齡女性', '銀髮族', '銀髮男性', '銀髮女性']:
             rating = data['ratings'].get(group, 0)
             latex_content += f" & {rating:.4f}"
         latex_content += " \\\\\n"
@@ -324,6 +369,7 @@ def generate_latex_report(results):
     latex_content += r"""
 \bottomrule
 \end{tabular}
+\end{adjustbox}
 \end{table}
 
 \section{性別收視差異分析}
@@ -370,9 +416,11 @@ def generate_latex_report(results):
 \begin{table}[H]
 \centering
 \caption{各月份年齡層收視率}
-\begin{tabular}{lrrrrrrr}
+\tiny
+\begin{adjustbox}{width=\textwidth,center}
+\begin{tabular}{lC{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}C{1.2cm}}
 \toprule
-月份 & 總體 & 核心觀眾 & 年輕族群 & 青壯年 & 中年 & 熟齡 & 銀髮族 \\
+\textbf{月份} & \textbf{總體} & \textbf{核心觀眾} & \textbf{年輕族群} & \textbf{青壯年} & \textbf{中年} & \textbf{熟齡} & \textbf{銀髮族} \\
 \midrule
 """
 
@@ -387,6 +435,7 @@ def generate_latex_report(results):
     latex_content += r"""
 \bottomrule
 \end{tabular}
+\end{adjustbox}
 \end{table}
 
 \subsection{各年齡層最佳/最差收視月份}
@@ -434,6 +483,13 @@ def generate_latex_report(results):
     \item 整體年齡分布占比
 \end{enumerate}
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{gender_age_analysis_landscape.png}
+\caption{不同時段性別年齡分布橫向圖表}
+\label{fig:gender_landscape}
+\end{figure}
+
 \section{策略建議}
 
 基於以上分析結果，我們提出以下策略建議：
@@ -474,45 +530,134 @@ def generate_latex_report(results):
 
     return latex_content
 
+def validate_latex_content(latex_content):
+    """驗證LaTeX內容的常見問題"""
+    issues = []
+    
+    # 檢查是否有未關閉的環境
+    environments = ['table', 'tabular', 'longtable', 'landscape', 'adjustbox']
+    for env in environments:
+        begin_count = latex_content.count(f'\\begin{{{env}}}')
+        end_count = latex_content.count(f'\\end{{{env}}}')
+        if begin_count != end_count:
+            issues.append(f"環境 {env} 未正確關閉 (開始:{begin_count}, 結束:{end_count})")
+    
+    # 檢查特殊字符
+    problematic_chars = ['%', '&', '$', '#', '_', '{', '}']
+    for char in problematic_chars:
+        if char in latex_content and f'\\{char}' not in latex_content:
+            # 簡單檢查，可能有誤報，但提醒用戶注意
+            pass
+    
+    # 檢查表格欄位數量是否一致
+    lines = latex_content.split('\n')
+    for i, line in enumerate(lines):
+        if '&' in line and '\\\\' in line:
+            # 這是表格行，檢查是否有明顯的欄位不匹配
+            if line.count('&') > 20:  # 過多的欄位可能導致溢出
+                issues.append(f"第 {i+1} 行表格欄位過多 ({line.count('&')} 個 &)")
+    
+    return issues
+
 def compile_pdf(latex_content, output_name="drama_age_analysis_report"):
     """編譯LaTeX為PDF"""
     print("🔨 編譯PDF報告...")
     
+    # 驗證LaTeX內容
+    print("🔍 驗證LaTeX內容...")
+    issues = validate_latex_content(latex_content)
+    if issues:
+        print("⚠️  發現潛在問題：")
+        for issue in issues:
+            print(f"   - {issue}")
+        print("繼續編譯...")
+    else:
+        print("✅ LaTeX內容驗證通過")
+    
     # 寫入LaTeX文件
     tex_file = f"{output_name}.tex"
-    with open(tex_file, 'w', encoding='utf-8') as f:
-        f.write(latex_content)
-    
     try:
-        # 編譯LaTeX (需要運行兩次來生成目錄)
-        print("  第一次編譯...")
-        subprocess.run(['xelatex', '-interaction=nonstopmode', tex_file], 
-                      capture_output=True, check=True)
-        
-        print("  第二次編譯...")
-        subprocess.run(['xelatex', '-interaction=nonstopmode', tex_file], 
-                      capture_output=True, check=True)
-        
-        # 清理輔助文件
-        for ext in ['.aux', '.log', '.toc', '.out']:
-            aux_file = f"{output_name}{ext}"
-            if os.path.exists(aux_file):
-                os.remove(aux_file)
-        
-        # 保留.tex文件以備檢查
-        print(f"✅ PDF報告生成成功：{output_name}.pdf")
-        print(f"📄 LaTeX源文件：{tex_file}")
-        
-    except subprocess.CalledProcessError as e:
-        print(f"❌ PDF編譯失敗：{e}")
-        print("請確認系統已安裝XeLaTeX")
-        return False
-    except FileNotFoundError:
-        print("❌ 找不到XeLaTeX編譯器")
-        print("請安裝TeX Live或MacTeX")
+        with open(tex_file, 'w', encoding='utf-8') as f:
+            f.write(latex_content)
+        print(f"✅ LaTeX源文件已生成：{tex_file}")
+    except Exception as e:
+        print(f"❌ 生成LaTeX文件失敗：{e}")
         return False
     
-    return True
+    # 嘗試不同的LaTeX編譯器
+    latex_engines = ['xelatex', 'pdflatex', 'lualatex']
+    
+    for engine in latex_engines:
+        try:
+            print(f"  嘗試使用 {engine} 編譯...")
+            
+            # 第一次編譯
+            result1 = subprocess.run([engine, '-interaction=nonstopmode', '-halt-on-error', tex_file], 
+                                   capture_output=True, text=True, timeout=300)
+            
+            if result1.returncode != 0:
+                print(f"    {engine} 第一次編譯失敗")
+                if result1.stderr:
+                    print(f"    錯誤信息：{result1.stderr[:500]}...")
+                continue
+            
+            # 第二次編譯以生成正確的目錄和引用
+            print(f"  {engine} 第二次編譯...")
+            result2 = subprocess.run([engine, '-interaction=nonstopmode', '-halt-on-error', tex_file], 
+                                   capture_output=True, text=True, timeout=300)
+            
+            if result2.returncode != 0:
+                print(f"    {engine} 第二次編譯失敗")
+                if result2.stderr:
+                    print(f"    錯誤信息：{result2.stderr[:500]}...")
+                continue
+            
+            # 編譯成功
+            print(f"✅ 使用 {engine} 編譯成功！")
+            
+            # 檢查PDF是否生成
+            pdf_file = f"{output_name}.pdf"
+            if os.path.exists(pdf_file):
+                pdf_size = os.path.getsize(pdf_file)
+                print(f"✅ PDF報告生成成功：{pdf_file} ({pdf_size:,} bytes)")
+            else:
+                print("⚠️  PDF文件未生成，但編譯過程無錯誤")
+            
+            # 清理輔助文件（保留.log以備檢查）
+            cleanup_extensions = ['.aux', '.toc', '.out', '.fls', '.fdb_latexmk', '.synctex.gz']
+            for ext in cleanup_extensions:
+                aux_file = f"{output_name}{ext}"
+                if os.path.exists(aux_file):
+                    try:
+                        os.remove(aux_file)
+                    except:
+                        pass  # 忽略清理錯誤
+            
+            print(f"📄 LaTeX源文件：{tex_file}")
+            if os.path.exists(f"{output_name}.log"):
+                print(f"📋 編譯日誌：{output_name}.log")
+            
+            return True
+            
+        except subprocess.TimeoutExpired:
+            print(f"    {engine} 編譯超時")
+            continue
+        except FileNotFoundError:
+            print(f"    未找到 {engine} 編譯器")
+            continue
+        except Exception as e:
+            print(f"    {engine} 編譯出現異常：{e}")
+            continue
+    
+    # 所有編譯器都失敗
+    print("❌ 所有LaTeX編譯器都失敗")
+    print("💡 建議：")
+    print("   1. 安裝 TeX Live (Linux/Windows) 或 MacTeX (macOS)")
+    print("   2. 檢查LaTeX語法是否正確")
+    print("   3. 確認所需的LaTeX包已安裝")
+    print(f"   4. 查看生成的 {tex_file} 文件")
+    
+    return False
 
 def main():
     """主函式"""

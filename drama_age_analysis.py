@@ -165,7 +165,7 @@ def analyze_time_slot_demographics():
         '深夜': (23, 23)
     }
     
-    print("\n各時段年齡層收視率分析:")
+    print("\n各時段年齡&性別層收視率分析:")
     print("=" * 80)
     
     time_age_data = []
@@ -188,9 +188,21 @@ def analyze_time_slot_demographics():
                         'Age_Group': group_name,
                         'Rating': avg_rating
                     })
+            
+            # 加入性別層的資料
+            for gender_group_name, col_name in GENDER_GROUPS.items():
+                if col_name in slot_data.columns:
+                    gender_avg_rating = slot_data[col_name].mean()
+                    print(f"  {gender_group_name:<10} {gender_avg_rating:.4f}")
+
+                    time_age_data.append({
+                        'Time_Slot': slot_name,
+                        'Age_Group': gender_group_name,
+                        'Rating': gender_avg_rating
+                    })
     
     # 找出各年齡層最佳時段
-    print("\n各年齡層最佳收視時段:")
+    print("\n各年齡&性別層最佳收視時段:")
     print("-" * 40)
     
     time_age_df = pd.DataFrame(time_age_data)
@@ -199,6 +211,12 @@ def analyze_time_slot_demographics():
         if len(group_data) > 0:
             best_slot = group_data.loc[group_data['Rating'].idxmax()]
             print(f"{group:<10} → {best_slot['Time_Slot']}時段 ({best_slot['Rating']:.4f})")
+    
+    for gender_group in GENDER_GROUPS.keys():
+        gender_group_data = time_age_df[time_age_df['Age_Group'] == gender_group]
+        if len(gender_group_data) > 0:
+            best_gender_slot = gender_group_data.loc[gender_group_data['Rating'].idxmax()]
+            print(f"{gender_group:<10} → {best_gender_slot['Time_Slot']}時段 ({best_gender_slot['Rating']:.4f})")
     
     return time_age_df
 
@@ -326,8 +344,124 @@ def analyze_monthly_age_trends():
     
     return monthly_age_df
 
+def create_gender_landscape_chart():
+    """創建專用的橫向性別年齡分布圖表"""
+    
+    # 載入資料
+    df = load_and_prepare_data()
+    
+    # 建立橫向圖表 (16x10 inch landscape)
+    fig, ax = plt.subplots(figsize=(16, 10))
+    
+    # 定義要顯示的性別年齡組合
+    gender_age_groups = [
+        '年輕男性', '年輕女性', '中年男性', '中年女性', 
+        '熟齡男性', '熟齡女性', '銀髮男性', '銀髮女性'
+    ]
+    
+    # 對應到資料中的實際欄位名稱
+    column_mapping = {
+        '年輕男性': '15-24歲男性',
+        '年輕女性': '15-24歲女性',
+        '中年男性': '35-44歲男性',
+        '中年女性': '35-44歲女性',
+        '熟齡男性': '45-54歲男性',
+        '熟齡女性': '45-54歲女性',
+        '銀髮男性': '55歲以上男性',
+        '銀髮女性': '55歲以上女性'
+    }
+    
+    # 時段名稱映射（從原始名稱到完整名稱）
+    time_slot_display_mapping = {
+        '凌晨': '凌晨時段',
+        '早晨': '早晨時段', 
+        '午間': '午間時段',
+        '黃金': '黃金時段',
+        '深夜': '深夜時段'
+    }
+    
+    # 定義時段（與analyze_time_slot_demographics()一致）
+    time_slots = {
+        '凌晨': (0, 5),
+        '早晨': (6, 11), 
+        '午間': (12, 17),
+        '黃金': (18, 22),
+        '深夜': (23, 23)
+    }
+    
+    # 建立時段性別年齡資料
+    time_gender_data = []
+    for slot_name, (start_hour, end_hour) in time_slots.items():
+        slot_data = df[df['Hour'].between(start_hour, end_hour)]
+        # 將原始時段名稱轉換為完整顯示名稱
+        display_time_slot = time_slot_display_mapping.get(slot_name, slot_name)
+        
+        for display_name, column_name in column_mapping.items():
+            if column_name in df.columns:
+                avg_rating = slot_data[column_name].mean()
+                time_gender_data.append({
+                    'Time_Slot': display_time_slot,
+                    'Age_Gender_Group': display_name,
+                    'Rating': avg_rating
+                })
+    
+    if time_gender_data:
+        time_gender_df = pd.DataFrame(time_gender_data)
+        pivot_time = time_gender_df.pivot(index='Time_Slot', columns='Age_Gender_Group', values='Rating')
+        
+        # 確保欄位順序
+        ordered_groups = [group for group in gender_age_groups if group in pivot_time.columns]
+        pivot_time = pivot_time.reindex(columns=ordered_groups, fill_value=0)
+        
+        # 專業性別年齡配色方案
+        colors = {
+            '年輕男性': '#1f77b4',    # 深藍（男性）
+            '年輕女性': '#87CEEB',    # 淺藍（女性）
+            '中年男性': '#2ca02c',    # 深綠（男性）  
+            '中年女性': '#90EE90',    # 淺綠（女性）
+            '熟齡男性': '#d62728',    # 深紅（男性）
+            '熟齡女性': '#FFB6C1',    # 淺紅（女性）
+            '銀髮男性': '#9467bd',    # 深紫（男性）
+            '銀髮女性': '#DDA0DD'     # 淺紫（女性）
+        }
+        chart_colors = [colors.get(col, '#777777') for col in pivot_time.columns]
+        
+        # 創建條形圖
+        bars = pivot_time.plot(kind='bar', ax=ax, width=0.8, 
+                              color=chart_colors, alpha=0.85, 
+                              edgecolor='white', linewidth=1.0)
+        
+        # 設定圖表屬性
+        ax.set_title('不同時段年齡與性別收視分布', fontsize=20, fontweight='bold',
+                    fontproperties='Heiti TC', pad=30)
+        ax.set_xlabel('時段', fontsize=16, fontproperties='Heiti TC')
+        ax.set_ylabel('平均收視率', fontsize=16, fontproperties='Heiti TC')
+        
+        # 優化圖例 - 橫向佈局
+        ax.legend(bbox_to_anchor=(0.5, -0.08), loc='upper center', fontsize=13,
+                 prop={'family': 'Heiti TC'}, frameon=True, fancybox=True,
+                 title='年齡群組與性別', title_fontsize=15, shadow=True,
+                 ncol=4)  # 4列橫向顯示
+        
+        # 軸標籤和刻度
+        ax.tick_params(axis='x', rotation=0, labelsize=14)
+        ax.tick_params(axis='y', labelsize=14)
+        ax.grid(True, alpha=0.3, linestyle='--', axis='y')
+        
+        # 添加數值標籤 - 所有類別
+        for container in bars.containers:
+            ax.bar_label(container, fmt='%.3f', fontsize=11, rotation=0, 
+                        bbox=dict(boxstyle='round,pad=0.2', facecolor='white', alpha=0.9))
+    
+    # 調整布局和保存
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.15)  # 為圖例留出空間
+    plt.savefig('gender_age_analysis_landscape.png', dpi=300, bbox_inches='tight',
+               facecolor='white', edgecolor='none')
+    plt.show()
+
 def create_age_analysis_visualizations():
-    """創建年齡分析視覺化圖表"""
+    """創建年齡分析視覺化圖表 - 優化版"""
     print("\n" + "="*60)
     print("5. 生成視覺化圖表")
     print("="*60)
@@ -341,66 +475,134 @@ def create_age_analysis_visualizations():
     gender_data, series_gender_data = analyze_gender_differences()
     monthly_data = analyze_monthly_age_trends()
     
-    # 創建綜合圖表
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
-    fig.suptitle('愛爾達綜合台年齡分層收視分析', fontsize=16, fontweight='bold', y=0.98,
-                fontproperties='Heiti TC')
+    # 創建主要分析圖表
+    fig = plt.figure(figsize=(20, 16))
+    gs = fig.add_gridspec(3, 2, height_ratios=[1, 1, 1], width_ratios=[1, 1], 
+                         hspace=0.5, wspace=0.3)
     
-    # 1. 主要劇集年齡偏好熱力圖
+    # 設定全局字體大小
+    plt.rcParams.update({
+        'font.size': 12,
+        'axes.titlesize': 14,
+        'axes.labelsize': 12,
+        'xtick.labelsize': 11,
+        'ytick.labelsize': 11,
+        'legend.fontsize': 11
+    })
+    
+    fig.suptitle('愛爾達綜合台年齡分層收視分析', fontsize=20, fontweight='bold', 
+                y=0.98, fontproperties='Heiti TC')
+    
+    # 0. 整體年齡層收視率概覽
+    ax0 = fig.add_subplot(gs[0, 0])
+    if not age_pref_data.empty:
+        # 計算各年齡層平均收視率
+        age_avg = age_pref_data.groupby('Age_Group')['Rating'].mean().sort_values(ascending=False)
+        bars = age_avg.plot(kind='bar', ax=ax0, color='#2E8B57', width=0.7, alpha=0.8)
+        ax0.set_title('各年齡層整體平均收視率', fontsize=14, fontweight='bold',
+                     fontproperties='Heiti TC', pad=20)
+        ax0.set_xlabel('年齡群組', fontsize=12, fontproperties='Heiti TC')
+        ax0.set_ylabel('平均收視率', fontsize=12, fontproperties='Heiti TC')
+        ax0.tick_params(axis='x', rotation=45, labelsize=10)
+        ax0.tick_params(axis='y', labelsize=10)
+        ax0.grid(True, alpha=0.3, linestyle='--')
+        
+        # 添加數值標籤
+        for container in bars.containers:
+            ax0.bar_label(container, fmt='%.3f', fontsize=9, rotation=0,
+                         bbox=dict(boxstyle='round,pad=0.1', facecolor='white', alpha=0.8))
+
+    # 1. 主要劇集年齡偏好熱力圖 - 增強版
+    ax1 = fig.add_subplot(gs[0, 1])
     if not age_pref_data.empty:
         pivot_data = age_pref_data.pivot(index='Series', columns='Age_Group', values='Rating')
-        sns.heatmap(pivot_data, annot=True, fmt='.3f', cmap='YlOrRd', 
-                   ax=axes[0, 0], cbar_kws={'label': '收視率'})
-        axes[0, 0].set_title('主要劇集年齡偏好分析', fontsize=12, fontproperties='Heiti TC')
-        axes[0, 0].set_xlabel('年齡群組', fontsize=10, fontproperties='Heiti TC')
-        axes[0, 0].set_ylabel('劇集', fontsize=10, fontproperties='Heiti TC')
+        sns.heatmap(pivot_data, annot=True, fmt='.3f', cmap='RdYlBu_r', 
+                   ax=ax1, cbar_kws={'label': '收視率', 'shrink': 0.8},
+                   annot_kws={'size': 10})
+        ax1.set_title('主要劇集年齡偏好分析', fontsize=14, fontweight='bold',
+                     fontproperties='Heiti TC', pad=20)
+        ax1.set_xlabel('年齡群組', fontsize=12, fontproperties='Heiti TC')
+        ax1.set_ylabel('劇集', fontsize=12, fontproperties='Heiti TC')
+        ax1.tick_params(axis='x', rotation=45, labelsize=10)
+        ax1.tick_params(axis='y', rotation=0, labelsize=10)
     
-    # 2. 時段年齡分布
-    if not time_age_data.empty:
-        pivot_time = time_age_data.pivot(index='Time_Slot', columns='Age_Group', values='Rating')
-        pivot_time.plot(kind='bar', ax=axes[0, 1], width=0.8)
-        axes[0, 1].set_title('不同時段年齡分布', fontsize=12, fontproperties='Heiti TC')
-        axes[0, 1].set_xlabel('時段', fontsize=10, fontproperties='Heiti TC')
-        axes[0, 1].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
-        axes[0, 1].legend(bbox_to_anchor=(1.05, 1), loc='upper left', fontsize=8, prop={'family': 'Heiti TC'})
-        axes[0, 1].tick_params(axis='x', rotation=0, labelsize=9)
+    # # 2. 時段年齡分布 (簡化版，性別分布移至獨立頁面)
+    # ax2 = fig.add_subplot(gs[0, 1])
+    # if not time_age_data.empty:
+    #     # 使用基本年齡群組
+    #     basic_groups = ['核心觀眾', '年輕族群', '中年', '熟齡', '銀髮族']
+    #     filtered_data = time_age_data[time_age_data['Age_Group'].isin(basic_groups)]
+        
+    #     if not filtered_data.empty:
+    #         pivot_time = filtered_data.pivot(index='Time_Slot', columns='Age_Group', values='Rating')
+    #         pivot_time = pivot_time.reindex(columns=basic_groups, fill_value=0)
+            
+    #         colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd']
+    #         bars = pivot_time.plot(kind='bar', ax=ax2, width=0.7, color=colors, alpha=0.8)
+            
+    #         ax2.set_title('時段收視分布（基本年齡層）', fontsize=14, fontweight='bold',
+    #                      fontproperties='Heiti TC', pad=20)
+    #         ax2.set_xlabel('時段', fontsize=12, fontproperties='Heiti TC')
+    #         ax2.set_ylabel('平均收視率', fontsize=12, fontproperties='Heiti TC')
+    #         ax2.legend(fontsize=10, prop={'family': 'Heiti TC'}, loc='upper left')
+    #         ax2.tick_params(axis='x', rotation=45, labelsize=10)
+    #         ax2.tick_params(axis='y', labelsize=10)
+    #         ax2.grid(True, alpha=0.3, linestyle='--')
     
-    # 3. 性別差異比較
+    # 3. 性別差異比較 - 優化版
+    ax3 = fig.add_subplot(gs[1, 0])
     if not gender_data.empty:
         pivot_gender = gender_data.pivot(index='Age_Group', columns='Gender', values='Rating')
-        pivot_gender.plot(kind='bar', ax=axes[0, 2], color=['lightblue', 'lightcoral'])
-        axes[0, 2].set_title('各年齡層性別差異', fontsize=12, fontproperties='Heiti TC')
-        axes[0, 2].set_xlabel('年齡群組', fontsize=10, fontproperties='Heiti TC')
-        axes[0, 2].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
-        axes[0, 2].legend(['男性', '女性'], fontsize=9, prop={'family': 'Heiti TC'})
-        axes[0, 2].tick_params(axis='x', rotation=45, labelsize=9)
+        pivot_gender.plot(kind='bar', ax=ax3, color=['#4A90E2', '#E24A72'], width=0.7)
+        ax3.set_title('各年齡層性別差異', fontsize=14, fontweight='bold',
+                     fontproperties='Heiti TC', pad=20)
+        ax3.set_xlabel('年齡群組', fontsize=12, fontproperties='Heiti TC')
+        ax3.set_ylabel('平均收視率', fontsize=12, fontproperties='Heiti TC')
+        ax3.legend(['男性', '女性'], fontsize=11, prop={'family': 'Heiti TC'}, 
+                  frameon=True, fancybox=True)
+        ax3.tick_params(axis='x', rotation=45, labelsize=10)
+        ax3.grid(True, alpha=0.3)
     
-    # 4. 月份趨勢（選取主要年齡層）
+    # 4. 月份趨勢 - 改進版
+    ax4 = fig.add_subplot(gs[1, 1])
     if not monthly_data.empty:
         main_groups = ['總體', '核心觀眾', '年輕族群', '銀髮族']
-        for group in main_groups:
+        colors = ['#2E86AB', '#A23B72', '#F18F01', '#8E5572']
+        
+        for i, group in enumerate(main_groups):
             group_data = monthly_data[monthly_data['Age_Group'] == group]
             if not group_data.empty:
-                axes[1, 0].plot(group_data['Month'], group_data['Rating'], 
-                               marker='o', label=group, linewidth=2)
-        axes[1, 0].set_title('月份年齡趨勢', fontsize=12, fontproperties='Heiti TC')
-        axes[1, 0].set_xlabel('月份', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 0].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 0].legend(fontsize=9, prop={'family': 'Heiti TC'})
-        axes[1, 0].set_xticks(range(1, 13))
-        axes[1, 0].tick_params(labelsize=9)
+                ax4.plot(group_data['Month'], group_data['Rating'], 
+                        marker='o', label=group, linewidth=2.5, 
+                        color=colors[i], markersize=6)
+        
+        ax4.set_title('月份年齡趨勢', fontsize=14, fontweight='bold',
+                     fontproperties='Heiti TC', pad=20)
+        ax4.set_xlabel('月份', fontsize=12, fontproperties='Heiti TC')
+        ax4.set_ylabel('平均收視率', fontsize=12, fontproperties='Heiti TC')
+        ax4.legend(fontsize=11, prop={'family': 'Heiti TC'}, 
+                  frameon=True, fancybox=True)
+        ax4.set_xticks(range(1, 13))
+        ax4.tick_params(labelsize=10)
+        ax4.grid(True, alpha=0.3)
     
-    # 5. 劇集性別偏好
+    # 5. 劇集性別偏好 - 優化版
+    ax5 = fig.add_subplot(gs[2, 0])
     if not series_gender_data.empty:
         pivot_series_gender = series_gender_data.pivot(index='Series', columns='Gender', values='Rating')
-        pivot_series_gender.plot(kind='barh', ax=axes[1, 1], color=['lightblue', 'lightcoral'])
-        axes[1, 1].set_title('主要劇集性別偏好', fontsize=12, fontproperties='Heiti TC')
-        axes[1, 1].set_xlabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 1].set_ylabel('劇集', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 1].legend(['男性', '女性'], fontsize=9, prop={'family': 'Heiti TC'})
-        axes[1, 1].tick_params(labelsize=9)
+        pivot_series_gender.plot(kind='barh', ax=ax5, 
+                               color=['#4A90E2', '#E24A72'], width=0.7)
+        ax5.set_title('主要劇集性別偏好', fontsize=14, fontweight='bold',
+                     fontproperties='Heiti TC', pad=20)
+        ax5.set_xlabel('平均收視率', fontsize=12, fontproperties='Heiti TC')
+        ax5.set_ylabel('劇集', fontsize=12, fontproperties='Heiti TC')
+        ax5.legend(['男性', '女性'], fontsize=11, prop={'family': 'Heiti TC'}, 
+                  frameon=True, fancybox=True)
+        ax5.tick_params(labelsize=10)
+        ax5.grid(True, alpha=0.3)
     
-    # 6. 整體年齡分布餅圖
+    # 6. 整體年齡分布餅圖 - 優化版
+    ax6 = fig.add_subplot(gs[2, 1])
     df = load_and_prepare_data()
     age_totals = {}
     for group_name, columns in AGE_GROUPS.items():
@@ -408,16 +610,39 @@ def create_age_analysis_visualizations():
             age_totals[group_name] = df[columns[0]].sum()
     
     if age_totals:
-        axes[1, 2].pie(age_totals.values(), labels=age_totals.keys(), autopct='%1.1f%%', 
-                      startangle=90, colors=plt.cm.Set3.colors, 
-                      textprops={'fontsize': 9, 'family': 'Heiti TC'})
-        axes[1, 2].set_title('整體年齡分布占比', fontsize=12, fontproperties='Heiti TC')
+        # 使用更好的顏色方案和更大的字體
+        colors = ['#FF9999', '#66B2FF', '#99FF99', '#FFCC99', '#FF99CC', '#99CCFF']
+        wedges, texts, autotexts = ax6.pie(age_totals.values(), labels=age_totals.keys(), 
+                                          autopct='%1.1f%%', startangle=90, 
+                                          colors=colors[:len(age_totals)],
+                                          textprops={'fontsize': 11, 'family': 'Heiti TC'})
+        
+        # 調整百分比文字樣式
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontweight('bold')
+            autotext.set_fontsize(11)
+        
+        ax6.set_title('整體年齡分布占比', fontsize=14, fontweight='bold',
+                     fontproperties='Heiti TC', pad=20)
     
+    # 調整布局並保存主要圖表
     plt.tight_layout()
-    plt.savefig('drama_age_analysis.png', dpi=300, bbox_inches='tight')
+    plt.savefig('drama_age_analysis.png', dpi=300, bbox_inches='tight',
+               facecolor='white', edgecolor='none')
     plt.show()
     
+    # 創建獨立的橫向性別年齡分布圖表
+    create_gender_landscape_chart()
+    
     print("✓ 視覺化圖表已保存為 'drama_age_analysis.png'")
+    print("  - 圖表尺寸: 20x16 英吋")
+    print("  - 解析度: 300 DPI")
+    print("  - 字體大小: 顯著增大以提升可讀性")
+    print("  - 布局: 優化間距避免重疊")
+    print("✓ 性別年齡分布圖表已保存為 'gender_age_analysis_landscape.png'")
+    print("  - 圖表尺寸: 16x10 英吋 (橫向)")
+    print("  - 專為8個性別年齡類別優化的可讀性")
 
 def generate_summary_report():
     """生成分析摘要報告"""
