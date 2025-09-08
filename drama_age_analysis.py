@@ -280,10 +280,155 @@ def analyze_gender_differences():
     
     return pd.DataFrame(gender_analysis_data), pd.DataFrame(series_gender_data)
 
+def analyze_weekday_weekend_performance():
+    """分析同一部戲劇在週間和週末的收視表現"""
+    print("\n" + "="*60)
+    print("4. 週間vs週末收視表現分析")
+    print("="*60)
+    
+    df = load_and_prepare_data()
+    
+    # 計算整體週間vs週末表現
+    weekday_data = df[~df['Is_Weekend']]
+    weekend_data = df[df['Is_Weekend']]
+    
+    overall_weekday = weekday_data['4歲以上'].mean()
+    overall_weekend = weekend_data['4歲以上'].mean()
+    
+    print("\n整體收視表現比較:")
+    print("-" * 40)
+    print(f"週間平均收視率: {overall_weekday:.4f}")
+    print(f"週末平均收視率: {overall_weekend:.4f}")
+    print(f"差異: {abs(overall_weekday - overall_weekend):.4f} ({'週末較高' if overall_weekend > overall_weekday else '週間較高'})")
+    
+    # 分析主要劇集的週間vs週末表現
+    series_counts = df['Cleaned_Series_Name'].value_counts()
+    major_series = series_counts[series_counts >= 30].head(12)  # 至少30集的前12部劇
+    
+    print(f"\n主要劇集週間vs週末收視比較 (>=30集的前12部劇):")
+    print("=" * 90)
+    print(f"{'劇集名稱':<20} {'週間收視':<10} {'週末收視':<10} {'差異':<8} {'偏向':<8} {'集數':<6}")
+    print("-" * 90)
+    
+    weekday_weekend_data = []
+    series_performance = []
+    
+    for series_name in major_series.index:
+        series_data = df[df['Cleaned_Series_Name'] == series_name]
+        
+        series_weekday = series_data[~series_data['Is_Weekend']]
+        series_weekend = series_data[series_data['Is_Weekend']]
+        
+        if len(series_weekday) > 0 and len(series_weekend) > 0:
+            weekday_rating = series_weekday['4歲以上'].mean()
+            weekend_rating = series_weekend['4歲以上'].mean()
+            
+            diff = abs(weekday_rating - weekend_rating)
+            preference = '週末' if weekend_rating > weekday_rating else '週間'
+            total_episodes = len(series_data)
+            
+            series_short_name = series_name[:18] + '..' if len(series_name) > 18 else series_name
+            print(f"{series_short_name:<20} {weekday_rating:<10.4f} {weekend_rating:<10.4f} {diff:<8.4f} {preference:<8} {total_episodes:<6}")
+            
+            # 儲存資料供視覺化使用
+            weekday_weekend_data.extend([
+                {
+                    'Series': series_name[:15] + '..' if len(series_name) > 15 else series_name,
+                    'Day_Type': '週間',
+                    'Rating': weekday_rating,
+                    'Episodes': len(series_weekday)
+                },
+                {
+                    'Series': series_name[:15] + '..' if len(series_name) > 15 else series_name,
+                    'Day_Type': '週末',
+                    'Rating': weekend_rating,
+                    'Episodes': len(series_weekend)
+                }
+            ])
+            
+            series_performance.append({
+                'Series': series_name,
+                'Weekday_Rating': weekday_rating,
+                'Weekend_Rating': weekend_rating,
+                'Difference': diff,
+                'Preference': preference,
+                'Total_Episodes': total_episodes,
+                'Weekday_Episodes': len(series_weekday),
+                'Weekend_Episodes': len(series_weekend)
+            })
+    
+    # 分析不同年齡層的週間vs週末偏好
+    print(f"\n不同年齡層週間vs週末收視偏好:")
+    print("-" * 60)
+    print(f"{'年齡層':<12} {'週間收視':<10} {'週末收視':<10} {'差異':<8} {'偏向':<8}")
+    print("-" * 60)
+    
+    age_weekday_weekend_data = []
+    
+    for group_name, columns in AGE_GROUPS.items():
+        if columns[0] in df.columns:
+            weekday_age = weekday_data[columns[0]].mean()
+            weekend_age = weekend_data[columns[0]].mean()
+            diff_age = abs(weekday_age - weekend_age)
+            pref_age = '週末' if weekend_age > weekday_age else '週間'
+            
+            print(f"{group_name:<12} {weekday_age:<10.4f} {weekend_age:<10.4f} {diff_age:<8.4f} {pref_age:<8}")
+            
+            age_weekday_weekend_data.extend([
+                {'Age_Group': group_name, 'Day_Type': '週間', 'Rating': weekday_age},
+                {'Age_Group': group_name, 'Day_Type': '週末', 'Rating': weekend_age}
+            ])
+    
+    # 時段分析
+    print(f"\n不同時段週間vs週末收視比較:")
+    print("-" * 50)
+    
+    time_slots = {
+        '早晨(6-11)': (6, 11),
+        '午間(12-17)': (12, 17),
+        '黃金(18-22)': (18, 22),
+        '深夜(23-1)': (23, 1)
+    }
+    
+    time_weekday_weekend_data = []
+    
+    for slot_name, (start_hour, end_hour) in time_slots.items():
+        if start_hour <= end_hour:
+            slot_data = df[df['Hour'].between(start_hour, end_hour)]
+        else:  # 跨日情況 (深夜)
+            slot_data = df[(df['Hour'] >= start_hour) | (df['Hour'] <= end_hour)]
+        
+        if len(slot_data) > 0:
+            slot_weekday = slot_data[~slot_data['Is_Weekend']]['4歲以上'].mean()
+            slot_weekend = slot_data[slot_data['Is_Weekend']]['4歲以上'].mean()
+            
+            print(f"{slot_name:<12} 週間:{slot_weekday:.4f} 週末:{slot_weekend:.4f}")
+            
+            time_weekday_weekend_data.extend([
+                {'Time_Slot': slot_name, 'Day_Type': '週間', 'Rating': slot_weekday},
+                {'Time_Slot': slot_name, 'Day_Type': '週末', 'Rating': slot_weekend}
+            ])
+    
+    # 統計摘要
+    weekend_preferred = sum(1 for perf in series_performance if perf['Preference'] == '週末')
+    weekday_preferred = len(series_performance) - weekend_preferred
+    
+    print(f"\n📊 週間vs週末表現統計:")
+    print("-" * 40)
+    print(f"偏好週末播出的劇集: {weekend_preferred} 部")
+    print(f"偏好週間播出的劇集: {weekday_preferred} 部")
+    print(f"最大收視差異: {max([perf['Difference'] for perf in series_performance]):.4f}")
+    print(f"平均收視差異: {sum([perf['Difference'] for perf in series_performance])/len(series_performance):.4f}")
+    
+    return (pd.DataFrame(weekday_weekend_data), 
+            pd.DataFrame(age_weekday_weekend_data), 
+            pd.DataFrame(time_weekday_weekend_data),
+            series_performance)
+
 def analyze_monthly_age_trends():
     """分析月份年齡趨勢"""
     print("\n" + "="*60)
-    print("4. 月份年齡趨勢分析")
+    print("5. 月份年齡趨勢分析")
     print("="*60)
     
     df = load_and_prepare_data()
@@ -329,7 +474,7 @@ def analyze_monthly_age_trends():
 def create_age_analysis_visualizations():
     """創建年齡分析視覺化圖表"""
     print("\n" + "="*60)
-    print("5. 生成視覺化圖表")
+    print("6. 生成視覺化圖表")
     print("="*60)
     
     # 設定字體
@@ -339,10 +484,11 @@ def create_age_analysis_visualizations():
     age_pref_data = analyze_age_group_preferences()
     time_age_data = analyze_time_slot_demographics()
     gender_data, series_gender_data = analyze_gender_differences()
+    weekday_weekend_data, age_weekday_data, time_weekday_data, series_perf = analyze_weekday_weekend_performance()
     monthly_data = analyze_monthly_age_trends()
     
-    # 創建綜合圖表
-    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    # 創建綜合圖表 (3x3 格局)
+    fig, axes = plt.subplots(3, 3, figsize=(18, 15))
     fig.suptitle('愛爾達綜合台年齡分層收視分析', fontsize=16, fontweight='bold', y=0.98,
                 fontproperties='Heiti TC')
     
@@ -375,43 +521,73 @@ def create_age_analysis_visualizations():
         axes[0, 2].legend(['男性', '女性'], fontsize=9, prop={'family': 'Heiti TC'})
         axes[0, 2].tick_params(axis='x', rotation=45, labelsize=9)
     
-    # 4. 月份趨勢（選取主要年齡層）
+    # 4. 週間vs週末劇集表現
+    if not weekday_weekend_data.empty:
+        pivot_weekday = weekday_weekend_data.pivot(index='Series', columns='Day_Type', values='Rating')
+        pivot_weekday.plot(kind='bar', ax=axes[1, 0], color=['skyblue', 'orange'])
+        axes[1, 0].set_title('劇集週間vs週末表現', fontsize=12, fontproperties='Heiti TC')
+        axes[1, 0].set_xlabel('劇集', fontsize=10, fontproperties='Heiti TC')
+        axes[1, 0].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
+        axes[1, 0].legend(['週間', '週末'], fontsize=9, prop={'family': 'Heiti TC'})
+        axes[1, 0].tick_params(axis='x', rotation=45, labelsize=8)
+    
+    # 5. 年齡層週間vs週末偏好
+    if not age_weekday_data.empty:
+        pivot_age_weekday = age_weekday_data.pivot(index='Age_Group', columns='Day_Type', values='Rating')
+        pivot_age_weekday.plot(kind='bar', ax=axes[1, 1], color=['skyblue', 'orange'])
+        axes[1, 1].set_title('年齡層週間vs週末偏好', fontsize=12, fontproperties='Heiti TC')
+        axes[1, 1].set_xlabel('年齡群組', fontsize=10, fontproperties='Heiti TC')
+        axes[1, 1].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
+        axes[1, 1].legend(['週間', '週末'], fontsize=9, prop={'family': 'Heiti TC'})
+        axes[1, 1].tick_params(axis='x', rotation=45, labelsize=9)
+    
+    # 6. 時段週間vs週末比較
+    if not time_weekday_data.empty:
+        pivot_time_weekday = time_weekday_data.pivot(index='Time_Slot', columns='Day_Type', values='Rating')
+        pivot_time_weekday.plot(kind='bar', ax=axes[1, 2], color=['skyblue', 'orange'])
+        axes[1, 2].set_title('時段週間vs週末比較', fontsize=12, fontproperties='Heiti TC')
+        axes[1, 2].set_xlabel('時段', fontsize=10, fontproperties='Heiti TC')
+        axes[1, 2].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
+        axes[1, 2].legend(['週間', '週末'], fontsize=9, prop={'family': 'Heiti TC'})
+        axes[1, 2].tick_params(axis='x', rotation=0, labelsize=9)
+    
+    # 7. 月份趨勢（選取主要年齡層）
     if not monthly_data.empty:
-        main_groups = ['總體', '核心觀眾', '年輕族群', '銀髮族']
+        main_groups = ['4歲以上', '15-44歲', '15-24歲', '55歲以上']
         for group in main_groups:
             group_data = monthly_data[monthly_data['Age_Group'] == group]
             if not group_data.empty:
-                axes[1, 0].plot(group_data['Month'], group_data['Rating'], 
+                axes[2, 0].plot(group_data['Month'], group_data['Rating'], 
                                marker='o', label=group, linewidth=2)
-        axes[1, 0].set_title('月份年齡趨勢', fontsize=12, fontproperties='Heiti TC')
-        axes[1, 0].set_xlabel('月份', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 0].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 0].legend(fontsize=9, prop={'family': 'Heiti TC'})
-        axes[1, 0].set_xticks(range(1, 13))
-        axes[1, 0].tick_params(labelsize=9)
+        axes[2, 0].set_title('月份年齡趨勢', fontsize=12, fontproperties='Heiti TC')
+        axes[2, 0].set_xlabel('月份', fontsize=10, fontproperties='Heiti TC')
+        axes[2, 0].set_ylabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
+        axes[2, 0].legend(fontsize=9, prop={'family': 'Heiti TC'})
+        axes[2, 0].set_xticks(range(1, 13))
+        axes[2, 0].tick_params(labelsize=9)
     
-    # 5. 劇集性別偏好
+    # 8. 劇集性別偏好
     if not series_gender_data.empty:
         pivot_series_gender = series_gender_data.pivot(index='Series', columns='Gender', values='Rating')
-        pivot_series_gender.plot(kind='barh', ax=axes[1, 1], color=['lightblue', 'lightcoral'])
-        axes[1, 1].set_title('主要劇集性別偏好', fontsize=12, fontproperties='Heiti TC')
-        axes[1, 1].set_xlabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 1].set_ylabel('劇集', fontsize=10, fontproperties='Heiti TC')
-        axes[1, 1].legend(['男性', '女性'], fontsize=9, prop={'family': 'Heiti TC'})
-        axes[1, 1].tick_params(labelsize=9)
+        pivot_series_gender.plot(kind='barh', ax=axes[2, 1], color=['lightblue', 'lightcoral'])
+        axes[2, 1].set_title('主要劇集性別偏好', fontsize=12, fontproperties='Heiti TC')
+        axes[2, 1].set_xlabel('平均收視率', fontsize=10, fontproperties='Heiti TC')
+        axes[2, 1].set_ylabel('劇集', fontsize=10, fontproperties='Heiti TC')
+        axes[2, 1].legend(['男性', '女性'], fontsize=9, prop={'family': 'Heiti TC'})
+        axes[2, 1].tick_params(labelsize=9)
     
-    # 6. 整體年齡分布餅圖
+    # 9. 整體年齡分布餅圖
     df = load_and_prepare_data()
     age_totals = {}
     for group_name, columns in AGE_GROUPS.items():
-        if group_name != '總體' and columns[0] in df.columns:
+        if group_name != '4歲以上' and columns[0] in df.columns:
             age_totals[group_name] = df[columns[0]].sum()
     
     if age_totals:
-        axes[1, 2].pie(age_totals.values(), labels=age_totals.keys(), autopct='%1.1f%%', 
+        axes[2, 2].pie(age_totals.values(), labels=age_totals.keys(), autopct='%1.1f%%', 
                       startangle=90, colors=plt.cm.Set3.colors, 
                       textprops={'fontsize': 9, 'family': 'Heiti TC'})
-        axes[1, 2].set_title('整體年齡分布占比', fontsize=12, fontproperties='Heiti TC')
+        axes[2, 2].set_title('整體年齡分布占比', fontsize=12, fontproperties='Heiti TC')
     
     plt.tight_layout()
     plt.savefig('drama_age_analysis.png', dpi=300, bbox_inches='tight')
@@ -493,6 +669,7 @@ def main():
         age_pref_data = analyze_age_group_preferences()
         time_age_data = analyze_time_slot_demographics()
         gender_data, series_gender_data = analyze_gender_differences()
+        weekday_weekend_data, age_weekday_data, time_weekday_data, series_perf = analyze_weekday_weekend_performance()
         monthly_data = analyze_monthly_age_trends()
         
         # 生成視覺化圖表
