@@ -1,0 +1,14 @@
+{
+  "main_audience": "55歲以上",
+  "main_audience_rating": 0.11398953345952569,
+  "gender_bias": "女性",
+  "gender_difference": 0.021902906135174247,
+  "best_hour": 20,
+  "best_hour_rating": 0.23863387978142078,
+  "total_records": 8981,
+  "total_series": 143,
+  "date_range": [
+    "2024-01-01T00:00:00",
+    "2024-12-31T00:00:00"
+  ]
+}

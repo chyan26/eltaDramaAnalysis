@@ -2,6 +2,7 @@
 admin_features.py
 
 整合Flask儀表板功能到Streamlit的管理模組
+使用統一的核心分析引擎，確保與automated_pipeline一致
 包含檔案監控、系統狀態、自動化分析等功能
 """
 
@@ -15,6 +16,17 @@ import time
 from pathlib import Path
 import json
 import psutil
+
+# 添加核心模組路徑
+sys.path.append(os.path.join(os.path.dirname(__file__), 'core'))
+
+try:
+    from core.age_analysis_engine import AgeAnalysisEngine, AgeAnalysisConfig
+    from core.visualization_engine import VisualizationEngine
+    CORE_ENGINE_AVAILABLE = True
+except ImportError as e:
+    st.warning(f"⚠️ 無法載入核心分析引擎: {e}")
+    CORE_ENGINE_AVAILABLE = False
 
 def show_system_status():
     """顯示系統狀態監控"""
@@ -146,40 +158,79 @@ def show_file_monitor():
                                 st.error(f"下載失敗: {e}")
 
 def show_analysis_runner():
-    """自動化分析執行器"""
-    st.header("🔄 自動化分析執行器")
+    """自動化分析執行器 - 使用統一分析引擎"""
+    st.header("🔄 自動化分析執行器（統一引擎版本）")
     
-    # 分析腳本配置
-    analysis_scripts = {
-        "🧹 資料清理": {
-            "script": "clean_data.py",
-            "description": "清理和標準化原始資料",
-            "estimated_time": "30秒",
-            "prerequisites": ["原始資料檔案"]
+    if not CORE_ENGINE_AVAILABLE:
+        st.error("❌ 核心分析引擎不可用，請檢查core模組")
+        return
+    
+    # 初始化分析引擎
+    if 'unified_engine' not in st.session_state:
+        st.session_state.unified_engine = AgeAnalysisEngine()
+        st.session_state.viz_engine = VisualizationEngine()
+    
+    engine = st.session_state.unified_engine
+    viz_engine = st.session_state.viz_engine
+    
+    # 檢查資料狀態
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        data_status = "🟢 已載入" if engine.df is not None else "🔴 未載入"
+        st.metric("資料狀態", data_status)
+        
+        if st.button("📂 載入資料", type="primary"):
+            with st.spinner("載入中..."):
+                try:
+                    engine.load_data()
+                    st.success("✅ 資料載入成功！")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"❌ 載入失敗: {e}")
+    
+    with col2:
+        if engine.df is not None:
+            st.metric("資料筆數", f"{len(engine.df):,}")
+        else:
+            st.metric("資料筆數", "N/A")
+    
+    with col3:
+        if engine.df is not None:
+            st.metric("劇集數量", engine.df['Cleaned_Series_Name'].nunique())
+        else:
+            st.metric("劇集數量", "N/A")
+    
+    st.divider()
+    
+    # 分析模組選擇
+    st.subheader("🔧 分析模組")
+    
+    analysis_modules = {
+        "� 年齡偏好分析": {
+            "function": "analyze_age_preferences",
+            "description": "分析不同年齡層對各劇集的偏好",
+            "time": "30秒"
         },
-        "📊 基礎分析": {
-            "script": "drama_analysis.py", 
-            "description": "執行劇集收視率基礎分析",
-            "estimated_time": "1分鐘",
-            "prerequisites": ["清理後資料"]
+        "⏰ 時段分析": {
+            "function": "analyze_time_demographics", 
+            "description": "分析不同時段的年齡分布",
+            "time": "20秒"
         },
-        "🎨 圖表生成": {
-            "script": "create_charts_heiti.py",
-            "description": "生成中文收視率分析圖表",
-            "estimated_time": "45秒",
-            "prerequisites": ["分析結果"]
+        "👥 性別差異分析": {
+            "function": "analyze_gender_differences",
+            "description": "分析性別收視差異",
+            "time": "25秒"
         },
-        "👥 年齡分析": {
-            "script": "drama_age_analysis.py",
-            "description": "深度年齡分層收視分析",
-            "estimated_time": "2分鐘",
-            "prerequisites": ["年齡分層資料"]
+        "📅 週間vs週末分析": {
+            "function": "analyze_weekday_weekend",
+            "description": "分析週間和週末收視表現",
+            "time": "35秒"
         },
-        "📋 報告生成": {
-            "script": "generate_pdf_report.py",
-            "description": "生成PDF格式分析報告",
-            "estimated_time": "1分鐘",
-            "prerequisites": ["所有分析結果"]
+        "� 月份趨勢分析": {
+            "function": "analyze_monthly_trends",
+            "description": "分析月份收視趨勢變化",
+            "time": "20秒"
         }
     }
     
@@ -188,34 +239,283 @@ def show_analysis_runner():
     col1, col2, col3 = st.columns(3)
     
     with col1:
-        if st.button("▶️ 執行完整分析流程", type="primary"):
-            run_complete_analysis(analysis_scripts)
+        if st.button("▶️ 執行完整分析", type="primary", disabled=engine.df is None):
+            run_unified_complete_analysis(engine, viz_engine)
     
     with col2:
-        if st.button("🎨 僅生成圖表"):
-            run_charts_only(analysis_scripts)
+        if st.button("🎨 生成統一圖表", disabled=engine.df is None):
+            generate_unified_charts(engine, viz_engine)
     
     with col3:
-        if st.button("📊 更新資料"):
-            update_data_only()
+        if st.button("📊 獲取摘要統計", disabled=engine.df is None):
+            show_unified_summary_stats(engine)
     
     st.divider()
     
-    # 單獨腳本執行
-    st.subheader("🔧 單獨腳本執行")
+    # 單獨模組執行
+    st.subheader("🔧 單獨模組執行")
     
-    for name, config in analysis_scripts.items():
+    for name, config in analysis_modules.items():
         with st.expander(f"{name} - {config['description']}"):
             col1, col2 = st.columns([2, 1])
             
             with col1:
-                st.write(f"**腳本**: `{config['script']}`")
-                st.write(f"**預估時間**: {config['estimated_time']}")
-                st.write(f"**前置條件**: {', '.join(config['prerequisites'])}")
+                st.write(f"**功能**: {config['description']}")
+                st.write(f"**預估時間**: {config['time']}")
+                st.write(f"**引擎**: 統一核心分析引擎")
             
             with col2:
-                if st.button(f"執行 {name}", key=f"run_{config['script']}"):
-                    run_single_script(config['script'], name)
+                if st.button(f"執行 {name}", key=f"run_{config['function']}", disabled=engine.df is None):
+                    run_single_unified_analysis(engine, config['function'], name)
+
+def run_unified_complete_analysis(engine, viz_engine):
+    """執行統一的完整分析流程"""
+    st.info("🚀 開始執行統一分析流程...")
+    
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    results_container = st.container()
+    
+    try:
+        # 執行完整分析
+        status_text.text("正在執行完整年齡分層分析...")
+        progress_bar.progress(0.2)
+        
+        results = engine.run_complete_analysis()
+        progress_bar.progress(0.7)
+        
+        # 生成視覺化
+        status_text.text("正在生成統一視覺化圖表...")
+        chart_path = viz_engine.create_comprehensive_dashboard(results)
+        progress_bar.progress(1.0)
+        
+        status_text.text("✅ 統一分析流程完成!")
+        
+        # 顯示結果
+        with results_container:
+            st.success("🎉 分析完成！結果與automated_pipeline完全一致")
+            
+            # 摘要統計
+            if 'summary_stats' in results:
+                stats = results['summary_stats']
+                
+                col1, col2, col3, col4 = st.columns(4)
+                with col1:
+                    st.metric("主要觀眾群", stats['main_audience'])
+                with col2:
+                    st.metric("平均收視率", f"{stats['main_audience_rating']:.4f}")
+                with col3:
+                    st.metric("性別偏向", stats['gender_bias'])
+                with col4:
+                    st.metric("最佳時段", f"{stats['best_hour']}點")
+            
+            # 顯示生成的圖表
+            if os.path.exists(chart_path):
+                st.image(chart_path, caption="統一分析結果圖表", use_container_width=True)
+                
+                # 提供下載
+                with open(chart_path, "rb") as file:
+                    st.download_button(
+                        label="📥 下載完整分析圖表",
+                        data=file,
+                        file_name="unified_drama_age_analysis.png",
+                        mime="image/png"
+                    )
+        
+        st.balloons()
+        
+    except Exception as e:
+        st.error(f"❌ 分析過程中發生錯誤: {e}")
+        progress_bar.empty()
+        status_text.empty()
+
+def generate_unified_charts(engine, viz_engine):
+    """生成統一圖表"""
+    st.info("🎨 正在生成統一視覺化圖表...")
+    
+    with st.spinner("處理中..."):
+        try:
+            # 執行必要的分析
+            results = {}
+            results['age_preferences'] = engine.analyze_age_preferences()
+            results['time_demographics'] = engine.analyze_time_demographics()
+            results['gender_overall'], results['gender_series'] = engine.analyze_gender_differences()
+            results['weekday_weekend'] = engine.analyze_weekday_weekend()
+            results['monthly_trends'] = engine.analyze_monthly_trends()
+            results['summary_stats'] = engine.get_summary_stats()
+            
+            # 生成圖表
+            chart_path = viz_engine.create_comprehensive_dashboard(results)
+            
+            if os.path.exists(chart_path):
+                st.success("✅ 統一圖表生成完成!")
+                st.image(chart_path, caption="統一分析圖表", use_container_width=True)
+                
+                with open(chart_path, "rb") as file:
+                    st.download_button(
+                        label="📥 下載圖表",
+                        data=file,
+                        file_name="unified_charts.png",
+                        mime="image/png"
+                    )
+            else:
+                st.error("❌ 圖表檔案生成失敗")
+        
+        except Exception as e:
+            st.error(f"❌ 圖表生成失敗: {e}")
+
+def show_unified_summary_stats(engine):
+    """顯示統一摘要統計"""
+    st.info("📊 正在獲取統一摘要統計...")
+    
+    with st.spinner("處理中..."):
+        try:
+            stats = engine.get_summary_stats()
+            
+            st.success("✅ 摘要統計獲取完成!")
+            
+            # 關鍵指標
+            st.subheader("📈 關鍵指標")
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("主要觀眾群", stats['main_audience'])
+            with col2:
+                st.metric("平均收視率", f"{stats['main_audience_rating']:.4f}")
+            with col3:
+                st.metric("性別偏向", stats['gender_bias'])
+            with col4:
+                st.metric("最佳時段", f"{stats['best_hour']}點")
+            
+            # 詳細統計
+            st.subheader("📋 詳細統計")
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                st.info(f"""
+                **資料統計**
+                - 總資料筆數: {stats['total_records']:,}
+                - 劇集總數: {stats['total_series']}
+                - 性別差異: {stats['gender_difference']:.4f}
+                """)
+            
+            with col2:
+                start_date = stats['date_range'][0].strftime('%Y-%m-%d')
+                end_date = stats['date_range'][1].strftime('%Y-%m-%d') 
+                st.info(f"""
+                **時間範圍**
+                - 開始日期: {start_date}
+                - 結束日期: {end_date}
+                - 最佳時段收視率: {stats['best_hour_rating']:.4f}
+                """)
+        
+        except Exception as e:
+            st.error(f"❌ 獲取摘要統計失敗: {e}")
+
+def run_single_unified_analysis(engine, function_name, display_name):
+    """執行單一統一分析"""
+    st.info(f"▶️ 正在執行 {display_name}...")
+    
+    with st.spinner(f"執行 {function_name}..."):
+        try:
+            # 根據功能名稱調用對應方法
+            if function_name == "analyze_age_preferences":
+                result = engine.analyze_age_preferences()
+                display_age_preferences_result(result)
+            elif function_name == "analyze_time_demographics":
+                result = engine.analyze_time_demographics()
+                display_time_demographics_result(result)
+            elif function_name == "analyze_gender_differences":
+                overall_result, series_result = engine.analyze_gender_differences()
+                display_gender_differences_result(overall_result, series_result)
+            elif function_name == "analyze_weekday_weekend":
+                result = engine.analyze_weekday_weekend()
+                display_weekday_weekend_result(result)
+            elif function_name == "analyze_monthly_trends":
+                result = engine.analyze_monthly_trends()
+                display_monthly_trends_result(result)
+            
+            st.success(f"✅ {display_name} 執行完成!")
+            
+        except Exception as e:
+            st.error(f"❌ 執行失敗: {str(e)}")
+
+def display_age_preferences_result(result):
+    """顯示年齡偏好分析結果"""
+    if not result.empty:
+        st.subheader("🎯 年齡偏好分析結果")
+        
+        # 熱力圖數據
+        pivot_data = result.pivot(index='Series', columns='Age_Group', values='Rating')
+        st.dataframe(pivot_data, use_container_width=True)
+        
+        # 統計摘要
+        st.write(f"📊 分析了 {result['Series'].nunique()} 部劇集的年齡偏好")
+        
+        # 最高收視率
+        max_row = result.loc[result['Rating'].idxmax()]
+        st.info(f"🏆 最高收視組合: {max_row['Series']} - {max_row['Age_Group']} ({max_row['Rating']:.4f})")
+
+def display_time_demographics_result(result):
+    """顯示時段分析結果"""
+    if not result.empty:
+        st.subheader("⏰ 時段分析結果")
+        
+        # 樞紐表
+        pivot_data = result.pivot(index='Time_Slot', columns='Age_Group', values='Rating')
+        st.dataframe(pivot_data, use_container_width=True)
+        
+        # 最佳時段統計
+        best_slots = result.loc[result.groupby('Age_Group')['Rating'].idxmax()]
+        st.write("🏆 各年齡層最佳時段:")
+        for _, row in best_slots.iterrows():
+            st.write(f"- {row['Age_Group']}: {row['Time_Slot']} ({row['Rating']:.4f})")
+
+def display_gender_differences_result(overall_result, series_result):
+    """顯示性別差異分析結果"""
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if not overall_result.empty:
+            st.subheader("👥 整體性別差異")
+            pivot_data = overall_result.pivot(index='Age_Group', columns='Gender', values='Rating')
+            st.dataframe(pivot_data, use_container_width=True)
+    
+    with col2:
+        if not series_result.empty:
+            st.subheader("🎭 劇集性別偏好")
+            pivot_data = series_result.pivot(index='Series', columns='Gender', values='Rating')
+            st.dataframe(pivot_data, use_container_width=True)
+
+def display_weekday_weekend_result(result):
+    """顯示週間vs週末分析結果"""
+    if 'series' in result and not result['series'].empty:
+        st.subheader("📅 劇集週間vs週末表現")
+        pivot_data = result['series'].pivot(index='Series', columns='Day_Type', values='Rating')
+        st.dataframe(pivot_data, use_container_width=True)
+    
+    if 'age_groups' in result and not result['age_groups'].empty:
+        st.subheader("👥 年齡層週間vs週末偏好")
+        pivot_data = result['age_groups'].pivot(index='Age_Group', columns='Day_Type', values='Rating')
+        st.dataframe(pivot_data, use_container_width=True)
+
+def display_monthly_trends_result(result):
+    """顯示月份趨勢分析結果"""
+    if not result.empty:
+        st.subheader("📈 月份趨勢分析結果")
+        
+        # 樞紐表
+        pivot_data = result.pivot(index='Month', columns='Age_Group', values='Rating')
+        st.dataframe(pivot_data, use_container_width=True)
+        
+        # 最佳/最差月份
+        for group in result['Age_Group'].unique():
+            group_data = result[result['Age_Group'] == group]
+            if not group_data.empty:
+                best_month = group_data.loc[group_data['Rating'].idxmax()]
+                worst_month = group_data.loc[group_data['Rating'].idxmin()]
+                st.write(f"**{group}**: 最佳 {best_month['Month']}月 ({best_month['Rating']:.4f}), " +
+                        f"最差 {worst_month['Month']}月 ({worst_month['Rating']:.4f})")
 
 def run_complete_analysis(scripts):
     """執行完整分析流程"""

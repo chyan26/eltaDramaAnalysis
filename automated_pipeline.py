@@ -2,7 +2,7 @@
 automated_pipeline.py
 
 Automated pipeline for drama analysis system
-Cleaned version - removed duplicates and unused parts
+使用統一的核心分析引擎，確保與Streamlit管理中心一致的結果
 
 Installation:
 pip install watchdog flask schedule
@@ -23,6 +23,21 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from flask import Flask, render_template_string, request, jsonify, send_file
 import threading
+import sys
+
+# 添加核心模組路徑
+sys.path.append(os.path.join(os.path.dirname(__file__), 'core'))
+
+# 設定自動化模式環境變數
+os.environ['AUTOMATED_MODE'] = '1'
+
+try:
+    from core.age_analysis_engine import AgeAnalysisEngine, AgeAnalysisConfig
+    from core.visualization_engine import VisualizationEngine
+    UNIFIED_ENGINE_AVAILABLE = True
+except ImportError as e:
+    print(f"Warning: 無法載入統一分析引擎: {e}")
+    UNIFIED_ENGINE_AVAILABLE = False
 
 # Configure logging
 logging.basicConfig(
@@ -36,7 +51,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 class DramaAnalysisPipeline:
-    """Main pipeline that orchestrates analysis scripts"""
+    """Main pipeline that orchestrates analysis scripts using unified engine"""
     
     def __init__(self, watch_directory="./data", output_directory="./outputs"):
         self.watch_dir = Path(watch_directory)
@@ -49,7 +64,17 @@ class DramaAnalysisPipeline:
         self.is_running = False
         self.results = {}
         
-        # Analysis script mapping
+        # 初始化統一分析引擎
+        if UNIFIED_ENGINE_AVAILABLE:
+            self.unified_engine = AgeAnalysisEngine()
+            self.viz_engine = VisualizationEngine()
+            logger.info("✓ 統一分析引擎初始化成功")
+        else:
+            self.unified_engine = None
+            self.viz_engine = None
+            logger.warning("⚠️ 統一分析引擎不可用，回退到舊版腳本模式")
+        
+        # Analysis script mapping (fallback for old scripts)
         self.analysis_scripts = {
             'extract': 'runAnalysis.py',
             'integrate': 'integrateData.py', 
@@ -59,6 +84,59 @@ class DramaAnalysisPipeline:
             'charts': 'create_charts_heiti.py',
             'report': 'generate_pdf_report.py'
         }
+        
+    def run_unified_analysis(self):
+        """使用統一引擎執行分析"""
+        if not UNIFIED_ENGINE_AVAILABLE or not self.unified_engine:
+            return False
+            
+        try:
+            logger.info("🚀 開始使用統一分析引擎執行分析")
+            
+            # 載入資料
+            self.unified_engine.load_data()
+            logger.info("✓ 資料載入完成")
+            
+            # 執行完整分析
+            analysis_results = self.unified_engine.run_complete_analysis()
+            logger.info("✓ 完整分析執行完成")
+            
+            # 生成統一視覺化
+            chart_path = self.viz_engine.create_comprehensive_dashboard(
+                analysis_results, 
+                'unified_drama_age_analysis.png'
+            )
+            logger.info(f"✓ 統一視覺化圖表已生成: {chart_path}")
+            
+            # 導出結果
+            exported_files = self.unified_engine.export_results(
+                analysis_results, 
+                str(self.output_dir)
+            )
+            logger.info(f"✓ 分析結果已導出: {len(exported_files)} 個檔案")
+            
+            # 更新結果狀態
+            stats = analysis_results.get('summary_stats', {})
+            self.results.update({
+                'unified_analysis': True,
+                'analysis_results': analysis_results,
+                'exported_files': exported_files,
+                'chart_path': chart_path,
+                'key_findings': {
+                    'main_audience': stats.get('main_audience', 'N/A'),
+                    'main_audience_rating': stats.get('main_audience_rating', 0),
+                    'gender_bias': stats.get('gender_bias', 'N/A'),
+                    'best_hour': stats.get('best_hour', 'N/A'),
+                    'total_records': stats.get('total_records', 0),
+                    'total_series': stats.get('total_series', 0)
+                }
+            })
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"❌ 統一分析引擎執行失敗: {e}")
+            return False
         
     def run_script(self, script_name):
         """Run analysis script with proper encoding handling"""
@@ -112,7 +190,7 @@ class DramaAnalysisPipeline:
             return False
     
     def run_full_analysis(self, trigger_source="manual"):
-        """Run complete analysis pipeline"""
+        """Run complete analysis pipeline with unified engine priority"""
         if self.is_running:
             logger.warning("Pipeline already running, skipping...")
             return False
@@ -120,6 +198,50 @@ class DramaAnalysisPipeline:
         self.is_running = True
         start_time = datetime.now()
         logger.info(f"STARTING PIPELINE (trigger: {trigger_source})")
+        
+        success = False
+        
+        # 優先使用統一分析引擎
+        if UNIFIED_ENGINE_AVAILABLE and self.unified_engine:
+            logger.info("🎯 使用統一分析引擎模式")
+            success = self.run_unified_analysis()
+            
+            if success:
+                logger.info("✅ 統一分析引擎執行成功")
+            else:
+                logger.warning("⚠️ 統一分析引擎失敗，回退到舊版腳本模式")
+                success = self.run_legacy_scripts()
+        else:
+            logger.info("📜 使用舊版腳本模式")
+            success = self.run_legacy_scripts()
+        
+        # Update status
+        end_time = datetime.now()
+        duration = (end_time - start_time).total_seconds()
+        
+        # 更新結果狀態
+        if not hasattr(self, 'results') or not self.results:
+            self.results = {}
+            
+        self.results.update({
+            'last_run': end_time.isoformat(),
+            'duration_seconds': duration,
+            'trigger_source': trigger_source,
+            'analysis_mode': 'unified' if (success and UNIFIED_ENGINE_AVAILABLE) else 'legacy',
+            'success': success,
+            'output_files': self.scan_output_files()
+        })
+        
+        self.last_run = end_time
+        self.is_running = False
+        
+        mode = self.results.get('analysis_mode', 'legacy')
+        logger.info(f"PIPELINE COMPLETED: {mode} mode, success={success}, duration={duration:.1f}s")
+        return success
+    
+    def run_legacy_scripts(self):
+        """Run legacy script-based analysis (fallback)"""
+        logger.info("執行舊版腳本分析流程")
         
         # Pipeline steps
         pipeline_steps = [
@@ -147,31 +269,37 @@ class DramaAnalysisPipeline:
             if success:
                 success_count += 1
         
-        # Update status
-        end_time = datetime.now()
-        duration = (end_time - start_time).total_seconds()
+        # 更新舊版腳本結果
+        self.results.update({
+            'legacy_steps': results,
+            'success_rate': f"{success_count}/{len(pipeline_steps)}"
+        })
         
-        self.results = {
-            'last_run': end_time.isoformat(),
-            'duration_seconds': duration,
-            'success_rate': f"{success_count}/{len(pipeline_steps)}",
-            'trigger_source': trigger_source,
-            'steps': results,
-            'output_files': self.scan_output_files()
-        }
-        
-        self.last_run = end_time
-        self.is_running = False
-        
-        logger.info(f"PIPELINE COMPLETED: {success_count}/{len(pipeline_steps)} successful in {duration:.1f}s")
         return success_count > 0
     
     def scan_output_files(self):
-        """Scan for generated output files"""
+        """Scan for generated output files including unified engine outputs"""
         expected_outputs = {
-            'charts': ['ratings_analysis_heiti.png', 'drama_age_analysis.png'],
-            'data': ['integrated_program_ratings_cleaned.csv', 'ACNelson_normalized_with_age.csv', 'program_schedule_extracted.csv'],
-            'reports': ['drama_age_analysis_report.pdf']
+            'charts': [
+                'unified_drama_age_analysis.png',  # 統一引擎生成
+                'ratings_analysis_heiti.png', 
+                'drama_age_analysis.png'
+            ],
+            'data': [
+                'integrated_program_ratings_cleaned.csv', 
+                'ACNelson_normalized_with_age.csv', 
+                'program_schedule_extracted.csv'
+            ],
+            'reports': [
+                'drama_age_analysis_report.pdf'
+            ],
+            'unified_outputs': [  # 統一引擎導出檔案
+                'outputs/age_preferences_analysis.csv',
+                'outputs/time_demographics_analysis.csv',
+                'outputs/gender_overall_analysis.csv',
+                'outputs/gender_series_analysis.csv',
+                'outputs/summary_stats.json'
+            ]
         }
         
         output_files = {}
@@ -408,7 +536,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <div class="container">
         <div class="header">
             <h1>🎬 愛爾達收視率分析系統</h1>
-            <p>自動化劇集數據分析與推薦引擎</p>
+            <p>統一核心引擎 + 自動化劇集數據分析與推薦</p>
         </div>
         
         <div class="main-content">
@@ -541,6 +669,27 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     document.getElementById('statDuration').textContent = duration;
                     document.getElementById('statSuccess').textContent = data.results.success_rate || '未知';
                     document.getElementById('statTrigger').textContent = data.results.trigger_source || '手動';
+                    
+                    // Show analysis mode
+                    const analysisMode = data.results.analysis_mode || 'legacy';
+                    const modeText = analysisMode === 'unified' ? '統一引擎' : '舊版腳本';
+                    const modeColor = analysisMode === 'unified' ? '#28a745' : '#ffc107';
+                    
+                    // Add analysis mode indicator
+                    if (!document.getElementById('statMode')) {
+                        const statsGrid = document.getElementById('statsGrid');
+                        const modeCard = document.createElement('div');
+                        modeCard.className = 'stat-card';
+                        modeCard.innerHTML = `
+                            <div class="stat-value" id="statMode" style="color: ${modeColor}">${modeText}</div>
+                            <div class="stat-label">分析模式</div>
+                        `;
+                        statsGrid.appendChild(modeCard);
+                    } else {
+                        const statMode = document.getElementById('statMode');
+                        statMode.textContent = modeText;
+                        statMode.style.color = modeColor;
+                    }
                     
                     // Count total files
                     const outputFiles = data.results.output_files || {};
@@ -710,11 +859,22 @@ def dashboard():
 
 @app.route('/api/status')
 def get_status():
-    """API endpoint for pipeline status"""
+    """獲取pipeline狀態"""
+    # 處理results中可能的DataFrame對象
+    results = {}
+    if pipeline.results:
+        for key, value in pipeline.results.items():
+            if hasattr(value, 'to_dict'):  # DataFrame對象
+                results[key] = f"DataFrame with {len(value)} rows"
+            elif isinstance(value, str) and value.endswith('.csv'):
+                results[key] = f"File: {value}"
+            else:
+                results[key] = str(value)
+    
     return jsonify({
         'is_running': pipeline.is_running,
         'last_run': pipeline.last_run.isoformat() if pipeline.last_run else None,
-        'results': pipeline.results
+        'results': results
     })
 
 @app.route('/api/trigger', methods=['POST'])
