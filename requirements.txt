@@ -8,6 +8,11 @@ seaborn>=0.11.0
 numpy>=1.20.0
 openpyxl>=3.0.0
 
+# Web 應用框架 / Web Frameworks
+streamlit>=1.25.0
+scikit-learn>=1.0.0
+jieba>=0.42.1
+
 # 自動化管道系統 / Automated Pipeline System
 watchdog>=2.1.9        # 檔案監控系統
 flask>=2.3.0           # Web 儀表板介面
