@@ -13,7 +13,7 @@ except ImportError:
     ADMIN_FEATURES_AVAILABLE = False
 
 # ====== 基本設定 ======
-st.set_page_config(page_title="愛爾達節目表互動平台", layout="wide")
+st.set_page_config(page_title="愛爾達節目收視分析平台", layout="wide")
 DEFAULT_DIR = "./"
 DEFAULT_SCHEDULE = os.path.join(DEFAULT_DIR, "program_schedule_extracted.csv")
 DEFAULT_RATINGS  = os.path.join(DEFAULT_DIR, "integrated_program_ratings_cleaned.csv")
