@@ -374,7 +374,7 @@ def recommend(dt_str, seed_series, SLOT_POP, TREND, SDF, RDF, vec, X, catalog,
     return cand.sort_values("score", ascending=False).head(topk)[show].reset_index(drop=True)
 
 # ====== Sidebar：應用模式選擇 ======
-st.sidebar.title("🎯 愛爾達分析平台")
+st.sidebar.title("🎯 愛爾達收視分析平台")
 app_mode = st.sidebar.selectbox(
     "選擇功能模式:",
     ["📺 劇集推薦系統", "🔧 系統管理中心"],
