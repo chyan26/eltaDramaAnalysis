@@ -5,6 +5,13 @@ from datetime import datetime, time
 import streamlit as st
 from typing import Optional
 
+# 導入管理功能模組
+try:
+    from admin_features import show_admin_dashboard
+    ADMIN_FEATURES_AVAILABLE = True
+except ImportError:
+    ADMIN_FEATURES_AVAILABLE = False
+
 # ====== 基本設定 ======
 st.set_page_config(page_title="愛爾達節目表互動平台", layout="wide")
 DEFAULT_DIR = "./"
@@ -365,6 +372,26 @@ def recommend(dt_str, seed_series, SLOT_POP, TREND, SDF, RDF, vec, X, catalog,
     show = ["series","score","slot_pop_score","content_sim","trend_z","freq"]
     if RDF is not None: show += ["rating_mean","rating_median","rating_count"]
     return cand.sort_values("score", ascending=False).head(topk)[show].reset_index(drop=True)
+
+# ====== Sidebar：應用模式選擇 ======
+st.sidebar.title("🎯 愛爾達分析平台")
+app_mode = st.sidebar.selectbox(
+    "選擇功能模式:",
+    ["📺 劇集推薦系統", "🔧 系統管理中心"],
+    index=0
+)
+
+st.sidebar.markdown("---")
+
+# 如果選擇管理模式，顯示管理儀表板
+if app_mode == "🔧 系統管理中心":
+    if ADMIN_FEATURES_AVAILABLE:
+        show_admin_dashboard()
+        st.stop()  # 停止執行後續的推薦系統代碼
+    else:
+        st.error("❌ 管理功能模組不可用")
+        st.info("請確保 admin_features.py 檔案存在且可正常導入")
+        st.stop()
 
 # ====== Sidebar：資料來源 ======
 st.sidebar.header("資料來源")

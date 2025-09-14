@@ -17,3 +17,4 @@ jieba>=0.42.1
 watchdog>=2.1.9        # 檔案監控系統
 flask>=2.3.0           # Web 儀表板介面
 schedule>=1.2.0        # 排程系統
+psutil>=5.8.0          # 系統監控套件
