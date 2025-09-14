@@ -842,7 +842,7 @@ if __name__ == '__main__':
     
     try:
         logger.info("Starting web dashboard at http://localhost:5000")
-        app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+        app.run(host='0.0.0.0', port=8080, debug=False, threaded=True)
     except KeyboardInterrupt:
         logger.info("Shutting down pipeline")
         observer.stop()
