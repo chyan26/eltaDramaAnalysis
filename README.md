@@ -2,17 +2,21 @@
 
 ## Overview / 專案概述
 
-This project successfully integrates ELTA's program schedule with viewership ratings data and conducts in-depth viewership analysis.
+This project successfully integrates ELTA's program schedule with viewership ratings data and conducts comprehensive viewership analysis with advanced features including age demographic analysis, automated report generation, and AI-powered insights.
 
-本專案成功整合了愛爾達綜合台的節目表與收視率資料，並進行了深入的收視率分析。
+本專案成功整合了愛爾達綜合台的節目表與收視率資料，並進行了深入的收視率分析，包含年齡層分析、自動化報告生成和AI驅動的洞察分析。
 
 ## Features / 主要功能
 
 - **Data Integration**: Merge program schedules with rating data
 - **Data Cleaning**: Standardize drama names and handle inconsistencies  
-- **Comprehensive Analysis**: Multi-dimensional rating analysis
+- **Comprehensive Analysis**: Multi-dimensional rating analysis with age demographics
 - **Visualization**: Generate publication-ready charts with Chinese font support
 - **Time Series Analysis**: Track drama performance over time
+- **Age Demographics**: Advanced audience age group analysis
+- **PDF Reports**: Automated LaTeX-based professional reports
+- **AI Presentation**: AI-powered presentation slides for industry insights
+- **🆕 Automated Pipeline System**: Web-based dashboard with real-time monitoring
 
 ## Installation / 安裝
 
@@ -44,11 +48,36 @@ python integrateData.py
 # 2. Data cleaning (if re-cleaning is needed)
 python clean_data.py
 
-# 3. Run analysis
+# 3. Run basic analysis
 python drama_analysis.py
 
 # 4. Generate charts (recommended version with Chinese font support)
 python create_charts_heiti.py
+
+# 5. Advanced age demographics analysis
+python drama_age_analysis.py
+
+# 6. Generate professional PDF report
+python generate_pdf_report.py
+```
+
+### Option 3: AI-Powered Presentation / AI驅動的投影片
+```bash
+# Generate AI presentation slides
+xelatex ai_python_presentation.tex
+# Output: ai_python_presentation.pdf
+```
+
+### Option 4: Automated Pipeline System / 自動化管道系統
+```bash
+# 1. 安裝依賴
+pip install -r requirements.txt
+
+# 2. 啟動自動化系統
+python automated_pipeline.py
+
+# 3. 開啟瀏覽器
+# 前往 http://localhost:5000
 ```
 
 ## 完成的主要工作
@@ -68,7 +97,7 @@ python create_charts_heiti.py
   - 合併重複系列（如「蠟筆小新」與「蠟筆小新#」）
   - 產生清理後的資料檔案 `integrated_program_ratings_cleaned.csv`
 
-### 3. 深度分析
+### 3. 基礎收視率分析
 - **檔案**: `drama_analysis.py`
 - **功能**:
   - 主要劇集統計與排名
@@ -78,14 +107,48 @@ python create_charts_heiti.py
   - 月份趨勢分析
   - 收視率分布區間分析
 
-### 4. 視覺化圖表
-- **檔案**: `create_charts.py`
+### 4. 進階年齡層分析
+- **檔案**: `drama_age_analysis.py`
+- **功能**:
+  - ACNelson收視率數據整合
+  - 年齡層分組分析（4-14歲、15-24歲、25-34歲等）
+  - 年齡層收視偏好研究
+  - 劇集類型與年齡層關聯分析
+  - 產生 `drama_age_analysis.png` 視覺化圖表
+
+### 5. 視覺化圖表
+- **檔案**: `create_charts_heiti.py` (推薦)
 - **功能**:
   - 各時段平均收視率長條圖
   - 月份收視率趨勢線圖
   - 主要劇集收視率比較圖
   - 收視率分布直方圖
-  - 產生高解析度圖表 `ratings_analysis.png`
+  - 產生高解析度圖表 `ratings_analysis_heiti.png`
+
+### 6. 專業報告生成
+- **檔案**: `generate_pdf_report.py`
+- **功能**:
+  - 自動化LaTeX報告生成
+  - 包含統計分析、圖表整合
+  - 產生專業級PDF報告 `drama_age_analysis_report.pdf`
+
+### 7. AI驅動的產業洞察
+- **檔案**: `ai_python_presentation.tex`
+- **功能**:
+  - 現代影視產業AI與Python應用主題
+  - 四頁專業投影片
+  - 技術架構展示
+  - 產業趨勢分析
+  - 產生 `ai_python_presentation.pdf`
+
+### 8. 🆕 自動化管道系統
+- **檔案**: `automated_pipeline.py`
+- **功能**:
+  - Web 儀表板介面
+  - 檔案上傳自動觸發分析
+  - 即時狀態監控和日誌
+  - 結果檔案管理和下載
+  - 排程自動執行功能
 
 ## 關鍵發現
 
@@ -138,13 +201,47 @@ python create_charts_heiti.py
 - High-resolution chart output / 高解析度圖表輸出
 - Chinese label support / 中文標籤支援
 
+### 🆕 Automation Features / 自動化功能
+- Web-based dashboard interface / Web 儀表板介面
+- Real-time analysis monitoring / 即時分析監控
+- Automated file processing / 自動檔案處理
+- Scheduled execution / 排程執行
+
 ## Dependencies / 依賴套件
 
+### Core Dependencies / 核心依賴
 - pandas >= 1.3.0
 - matplotlib >= 3.3.0
 - seaborn >= 0.11.0
 - numpy >= 1.20.0
 - openpyxl >= 3.0.0
+
+### 🆕 Automation System / 自動化系統
+- watchdog >= 2.1.9
+- flask >= 2.3.0
+- schedule >= 1.2.0
+
+### Advanced Features / 進階功能
+- LaTeX distribution (for PDF report generation)
+- xeCJK package (for Chinese text in LaTeX)
+- Additional visualization libraries
+
+### Installation / 安裝指令
+```bash
+pip install -r requirements.txt
+```
+
+For LaTeX support (PDF reports):
+```bash
+# macOS
+brew install --cask mactex
+
+# Ubuntu/Debian
+sudo apt-get install texlive-full
+
+# Windows
+# Download and install MiKTeX or TeX Live
+```
 
 ## Contributing / 貢獻
 
@@ -162,6 +259,22 @@ This project is open source. Please ensure you have the right to use any data fi
 
 For questions about this project, please open an issue on GitHub.
 
+## Project Outputs / 專案輸出
+
+### Data Files / 資料檔案
+- `integrated_program_ratings_cleaned.csv` - 清理後的完整收視率資料
+- `ACNelson_normalized_with_age.csv` - 年齡層分析資料
+- `program_schedule_extracted.csv` - 節目表資料
+
+### Visualizations / 視覺化圖表
+- `ratings_analysis_heiti.png` - 主要收視率分析圖表（推薦）
+- `drama_age_analysis.png` - 年齡層分析圖表
+- `ratings_analysis_english.png` - 英文版圖表
+
+### Reports / 報告文件
+- `drama_age_analysis_report.pdf` - 專業分析報告
+- `ai_python_presentation.pdf` - AI與Python應用投影片
+
 ---
 
 ## Notes / 注意事項
@@ -169,3 +282,6 @@ For questions about this project, please open an issue on GitHub.
 - Drama names standardized to avoid duplicate counting / 劇集名稱已統一，避免重複計算
 - Chinese font display supported (may require Chinese font installation) / 支援中文字體顯示（可能需要安裝中文字體）
 - Charts output in high-resolution PNG format / 圖表輸出為高解析度PNG格式
+- PDF reports require LaTeX installation / PDF報告需要安裝LaTeX
+- Age analysis requires ACNelson data files / 年齡分析需要ACNelson資料檔案
+- 🆕 Web dashboard available at http://localhost:5000 after running automated_pipeline.py / 執行 automated_pipeline.py 後可在 http://localhost:5000 使用 Web 儀表板
